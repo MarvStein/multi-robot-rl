@@ -9,7 +9,7 @@ def masspoint_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
     """Runner configuration for PPO."""
     return RslRlOnPolicyRunnerCfg(
         num_steps_per_env=24,
-        max_iterations=1500,
+        max_iterations=200,
         save_interval=50,
         experiment_name="masspoint_reach",
         actor=RslRlModelCfg(

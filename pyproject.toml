@@ -20,3 +20,12 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 mjlab = { git = "https://github.com/mujocolab/mjlab.git" }
+
+[dependency-groups]
+dev = [
+    "mkdocs-gen-files>=0.6.1",
+    "mkdocs-literate-nav>=0.6.3",
+    "mkdocs-material>=9.7.6",
+    "mkdocs-mermaid2-plugin>=1.2.3",
+    "mkdocstrings[python]>=1.0.3",
+]

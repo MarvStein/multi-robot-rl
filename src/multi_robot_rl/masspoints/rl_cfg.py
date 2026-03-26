@@ -40,3 +40,10 @@ def masspoint_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
             max_grad_norm=1.0,
         ),
     )
+
+
+def masspoint_multi_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
+    """Runner configuration for PPO in the configurable multi-reach task."""
+    cfg = masspoint_ppo_runner_cfg()
+    cfg.experiment_name = "masspoint_multi_reach"
+    return cfg

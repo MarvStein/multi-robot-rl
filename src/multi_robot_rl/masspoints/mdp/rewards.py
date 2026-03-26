@@ -66,6 +66,33 @@ def goal_distance_reward(env, asset_cfg: SceneEntityCfg, goal_cfg: SceneEntityCf
     is_perfect = (dist_2d < 0.005).float()
     return torch.exp(-2.0 * dist_2d) + (10 * is_close) + (20 * is_perfect)
 
+def multi_goal_distance_reward(
+    env,
+    masspoint_cfgs: list[SceneEntityCfg],
+    goal_cfgs: list[SceneEntityCfg],
+) -> torch.Tensor:
+    """Coverage reward for N masspoints and M goals.
+
+    For each goal the reward is computed using the distance to the *nearest*
+    masspoint.  This encourages full coverage: every goal must be reached by
+    at least one masspoint to maximise the total return.
+
+    The scale and bonus thresholds match :func:`goal_distance_reward` so that
+    the per-goal reward is directly comparable to the single-agent task.
+    """
+    total_reward = torch.zeros(env.num_envs, device=env.device)
+    for goal_cfg in goal_cfgs:
+        # Distances from every masspoint to this goal: [num_envs, N]
+        dists = torch.stack(
+            [distance_to_goal(env, mp_cfg, goal_cfg).squeeze(-1) for mp_cfg in masspoint_cfgs],
+            dim=-1,
+        )
+        min_dist = dists.min(dim=-1).values  # [num_envs]
+        is_close = (min_dist < 0.05).float()
+        is_perfect = (min_dist < 0.005).float()
+        total_reward += torch.exp(-2.0 * min_dist) + (10 * is_close) + (20 * is_perfect)
+    return total_reward
+
 def action_magnitude_penalty(env) -> torch.Tensor:
     """Penalize the magnitude of the actions."""
     return torch.norm(env.action_manager.action, dim=-1)

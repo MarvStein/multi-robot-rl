@@ -12,7 +12,12 @@ from mjlab.managers.termination_manager import TerminationTermCfg
 from mjlab.sim import MujocoCfg, SimulationCfg
 
 # Import local modules
-from multi_robot_rl.masspoints.assets import get_masspoint_cfg, get_goal_cfg
+from multi_robot_rl.masspoints.assets import (
+    get_masspoint_cfg,
+    get_goal_cfg,
+    get_masspoints_cfg,
+    get_goals_cfg,
+)
 import multi_robot_rl.masspoints.mdp as mdp
 
 def masspoint_reach_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
@@ -105,6 +110,135 @@ def masspoint_reach_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             }
         )
     }
+
+    return ManagerBasedRlEnvCfg(
+        scene=scene,
+        observations=observations,
+        actions=_actions,
+        events=events,
+        rewards=rewards,
+        terminations=terminations,
+        sim=SimulationCfg(
+            mujoco=MujocoCfg(timestep=0.01)
+        ),
+        decimation=5,
+        episode_length_s=5.0,
+    )
+
+
+def multi_masspoint_reach_env_cfg(
+    num_masspoints: int = 2,
+    num_goals: int = 2,
+    play: bool = False,
+) -> ManagerBasedRlEnvCfg:
+    """Configuration for N masspoints reaching M unassigned goals.
+
+    All masspoints share the same policy.  The observation for the joint policy
+    is the flat concatenation of each masspoint's velocity and its relative
+    distance/direction to every goal, so the network naturally handles any
+    (N, M) combination without code duplication.
+
+    The reward encourages *full coverage*: for each goal the contribution is
+    based on the nearest masspoint, which means every goal must be covered to
+    maximise the return.
+
+    Args:
+        num_masspoints: Number of masspoints (N ≥ 1).
+        num_goals: Number of goals (M ≥ 1).
+        play: When True, a single environment is created (for visualisation).
+    """
+    # 1. Scene setup
+    entities: dict = {}
+    entities.update(get_masspoints_cfg(num_masspoints))
+    entities.update(get_goals_cfg(num_goals))
+
+    scene = SceneCfg(
+        terrain=TerrainEntityCfg(terrain_type="plane"),
+        entities=entities,
+        num_envs=1 if play else 2048,
+        env_spacing=2.0,
+    )
+
+    # Scene Entity Configs
+    mp_cfgs = [SceneEntityCfg(f"masspoint_{i}") for i in range(num_masspoints)]
+    goal_cfgs = [SceneEntityCfg(f"goal_{j}") for j in range(num_goals)]
+
+    # 2. Observations
+    # Each masspoint contributes: velocity (2) + relative position to each goal (2*M) + distance to each goal (M)
+    # Total obs dimension: N * (2 + 3*M)
+    obs_terms = {
+        "masspoint_velocities": ObservationTermCfg(
+            func=mdp.observations.multi_masspoint_vel,
+            params={"masspoint_cfgs": mp_cfgs},
+        ),
+        "relative_goal_positions": ObservationTermCfg(
+            func=mdp.observations.multi_masspoint_relative_goal_pos,
+            params={"masspoint_cfgs": mp_cfgs, "goal_cfgs": goal_cfgs},
+        ),
+        "distances_to_goals": ObservationTermCfg(
+            func=mdp.observations.multi_masspoint_distance_to_goals,
+            params={"masspoint_cfgs": mp_cfgs, "goal_cfgs": goal_cfgs},
+        ),
+    }
+
+    observations = {
+        "actor": ObservationGroupCfg(obs_terms),
+        "critic": ObservationGroupCfg(obs_terms),
+    }
+
+    # 3. Actions — one term per masspoint, action space is 2*N total
+    _actions = {
+        f"velocity_{i}": actions.JointVelocityActionCfg(
+            entity_name=f"masspoint_{i}",
+            actuator_names=("mp_x", "mp_y"),
+            scale=1.0,
+        )
+        for i in range(num_masspoints)
+    }
+
+    # 4. Rewards
+    rewards = {
+        "goal_coverage": RewardTermCfg(
+            func=mdp.rewards.multi_goal_distance_reward,
+            weight=1.0,
+            params={"masspoint_cfgs": mp_cfgs, "goal_cfgs": goal_cfgs},
+        ),
+        "total_command": RewardTermCfg(
+            func=mdp.rewards.action_magnitude_penalty,
+            weight=-0.1,
+        ),
+        "action_rate": RewardTermCfg(
+            func=mdp.rewards.action_change_penalty,
+            weight=-0.1,
+        ),
+    }
+
+    # 5. Terminations
+    terminations = {
+        "time_out": TerminationTermCfg(func=mdp.terminations.time_out, time_out=True),
+    }
+
+    # 6. Events (Resets)
+    events: dict = {}
+    for i in range(num_masspoints):
+        events[f"reset_masspoint_{i}"] = EventTermCfg(
+            func=mjlab_events.reset_joints_by_offset,
+            mode="reset",
+            params={
+                "position_range": (-0.1, 0.1),
+                "velocity_range": (-0.01, 0.01),
+                "asset_cfg": SceneEntityCfg(f"masspoint_{i}", joint_names=("mp_x", "mp_y")),
+            },
+        )
+    for j in range(num_goals):
+        events[f"reset_goal_{j}"] = EventTermCfg(
+            func=mdp.events.reset_goal_position,
+            mode="reset",
+            params={
+                "asset_cfg": goal_cfgs[j],
+                "pos_range": ((-0.5, 0.5), (-0.5, 0.5), (0.0, 0.0)),
+            },
+        )
 
     return ManagerBasedRlEnvCfg(
         scene=scene,

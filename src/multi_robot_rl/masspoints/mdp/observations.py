@@ -2,6 +2,42 @@
 import torch
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 
+
+def _stack_masspoint_state(env, masspoint_names: tuple[str, ...]) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return stacked masspoint 2D joint positions and velocities."""
+    pos_2d = [env.scene[name].data.joint_pos[:, :2] for name in masspoint_names]
+    vel_2d = [env.scene[name].data.joint_vel[:, :2] for name in masspoint_names]
+    return torch.stack(pos_2d, dim=1), torch.stack(vel_2d, dim=1)
+
+
+def _stack_goal_pos(env, goal_names: tuple[str, ...]) -> torch.Tensor:
+    """Return stacked goal 2D positions."""
+    goal_pos_2d = [env.scene[name].data.root_link_pos_w[:, :2] for name in goal_names]
+    return torch.stack(goal_pos_2d, dim=1)
+
+
+def centralized_state(
+    env,
+    masspoint_names: tuple[str, ...],
+    goal_names: tuple[str, ...],
+    include_goal_activity: bool = True,
+) -> torch.Tensor:
+    """Flattened centralized observation with fixed order for all masspoints and goals."""
+    mp_pos, mp_vel = _stack_masspoint_state(env, masspoint_names)
+    goal_pos = _stack_goal_pos(env, goal_names)
+
+    terms = [
+        mp_pos.reshape(env.num_envs, -1),
+        mp_vel.reshape(env.num_envs, -1),
+        goal_pos.reshape(env.num_envs, -1),
+    ]
+    if include_goal_activity:
+        active = getattr(env, "_multi_goal_active", None)
+        if active is None:
+            active = torch.ones(env.num_envs, len(goal_names), device=env.device, dtype=torch.float32)
+        terms.append(active.float())
+    return torch.cat(terms, dim=-1)
+
 def distance_to_goal(env, asset_cfg: SceneEntityCfg, goal_cfg: SceneEntityCfg) -> torch.Tensor:
     """Distance between the asset and the goal."""
     asset_pos = env.scene[asset_cfg.name].data.joint_pos  # Joint positions for the two sliders gives actual XY

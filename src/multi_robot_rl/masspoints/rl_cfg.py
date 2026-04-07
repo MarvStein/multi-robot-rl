@@ -5,8 +5,8 @@ from mjlab.rl import (
   RslRlPpoAlgorithmCfg,
 )
 
-def masspoint_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
-    """Runner configuration for PPO."""
+def ppo_runner_cfg_masspoint_reach() -> RslRlOnPolicyRunnerCfg:
+    """Runner configuration for PPO in the masspoint reach task."""
     return RslRlOnPolicyRunnerCfg(
         num_steps_per_env=24,
         max_iterations=200,
@@ -42,8 +42,15 @@ def masspoint_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
     )
 
 
-def masspoint_multi_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
-    """Runner configuration for PPO in the configurable multi-reach task."""
-    cfg = masspoint_ppo_runner_cfg()
+def ppo_runner_cfg_masspoint_multi_reach() -> RslRlOnPolicyRunnerCfg:
+    """Runner configuration for PPO in the masspoint multi-reach task."""
+    cfg = ppo_runner_cfg_masspoint_reach()
     cfg.experiment_name = "masspoint_multi_reach"
+    return cfg
+
+def ppo_runner_cfg_masspoint_keyboard() -> RslRlOnPolicyRunnerCfg:
+    """Runner configuration for PPO in the masspoint keyboard task."""
+    cfg = ppo_runner_cfg_masspoint_reach()
+    cfg.experiment_name = "masspoint_keyboard"
+    cfg.max_iterations = 500
     return cfg

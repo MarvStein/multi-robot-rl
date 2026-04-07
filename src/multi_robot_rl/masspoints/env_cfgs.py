@@ -4,6 +4,7 @@ from __future__ import annotations
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.envs.mdp import actions
 from mjlab.envs.mdp import events as mjlab_events
+from mjlab.envs.mdp import rewards as mjlab_rewards
 from mjlab.scene import SceneCfg
 from mjlab.terrains import TerrainEntityCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
@@ -11,11 +12,17 @@ from mjlab.managers.observation_manager import ObservationGroupCfg, ObservationT
 from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
+from mjlab.managers.metrics_manager import MetricsTermCfg
 from mjlab.sim import MujocoCfg, SimulationCfg
+from mjlab.viewer.viewer_config import ViewerConfig
 
 # Import local modules
-from multi_robot_rl.masspoints.assets import get_masspoint_cfg, get_goal_cfg
+from multi_robot_rl.masspoints.assets import (
+    get_masspoint_cfg, get_goal_cfg, get_masspoint_3d_cfg, get_keyboard_board_cfg,
+    get_active_key_marker_cfg, get_next_key_marker_cfg
+)
 import multi_robot_rl.masspoints.mdp as mdp
+import multi_robot_rl.masspoints.keyboard_constants as kc
 
 
 def _validate_multi_config(num_masspoints: int, num_goals: int):
@@ -277,3 +284,132 @@ def masspoint_multi_reach_env_cfg(
         decimation=5,
         episode_length_s=5.0,
     )
+
+def masspoint_keyboard_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
+    """Configuration for the 3D masspoint keyboard task."""
+    num_masspoints = kc.NUM_MASSPOINTS
+    
+    masspoint_names = tuple(f"masspoint_{idx}" for idx in range(num_masspoints))
+
+    entities = {name: get_masspoint_3d_cfg() for name in masspoint_names}
+    entities.update({
+        "keyboard": get_keyboard_board_cfg(),
+        "active_key_marker": get_active_key_marker_cfg(),
+        "next_key_marker": get_next_key_marker_cfg(),
+    })
+
+    # 1. Scene setup
+    scene = SceneCfg(
+        terrain=TerrainEntityCfg(terrain_type="plane"),
+        entities=entities,
+        num_envs=1 if play else 2048,
+        env_spacing=2.0,
+    )
+
+    # 2. Observations
+    obs_terms = {
+        "keyboard_state_obs": ObservationTermCfg(
+            func=mdp.observations.keyboard_state_obs,
+            params={
+                "masspoint_names": masspoint_names,
+            }
+        )
+    }
+
+    observations = {
+        "actor": ObservationGroupCfg(obs_terms),
+        "critic": ObservationGroupCfg(obs_terms),
+    }
+
+    # 3. Actions
+    _actions = {
+        f"velocity_{name}": actions.JointVelocityActionCfg(
+            entity_name=name,
+            actuator_names=("mp_x", "mp_y", "mp_z"),
+            scale=1.0,
+        )
+        for name in masspoint_names
+    }
+
+    # 4. Rewards
+    rewards = {
+        "z_depression": RewardTermCfg(
+            func=mdp.rewards.z_depression_reward,
+            weight=1.0,
+        ),
+        # "total_command": RewardTermCfg(
+        #     func=mdp.rewards.action_magnitude_penalty,
+        #     weight=-0.1,
+        # ),
+        "out_of_bounds_penalty": RewardTermCfg(
+            func=mjlab_rewards.is_terminated,
+            weight=-10.0,
+        ),
+    }
+
+    # 5. Terminations
+    terminations = {
+        "time_out": TerminationTermCfg(func=mdp.terminations.time_out, time_out=True),
+        "out_of_bounds": TerminationTermCfg(func=mdp.terminations.out_of_bounds, params={"masspoint_names": masspoint_names}),
+    }
+
+    # 6. Events (Resets)
+    events = {
+        "reset_keyboard": EventTermCfg(
+            func=mdp.events.reset_keyboard_state,
+            mode="reset",
+            params={
+                "masspoint_names": masspoint_names,
+            }
+        ),
+        "update_keyboard": EventTermCfg(
+            func=mdp.events.update_keyboard_state,
+            mode="step",
+            params={
+                "masspoint_names": masspoint_names,
+            }
+        )
+    }
+
+    for name in masspoint_names:
+        events[f"reset_{name}"] = EventTermCfg(
+            func=mdp.events.reset_masspoint_3d,
+            mode="reset",
+            params={
+                "position_range": (-0.1, 0.1),
+                "velocity_range": (-0.01, 0.01),
+                "z_height": kc.MP_Z_RANGE[1],
+                "asset_cfg": SceneEntityCfg(name, joint_names=("mp_x", "mp_y", "mp_z")),
+            },
+        )
+
+    # 7. Metrics
+    metrics = {
+        "key_press_fraction": MetricsTermCfg(
+            func=mdp.metrics.key_press_fraction,
+        )
+    }
+
+    viewer = ViewerConfig(
+        origin_type=ViewerConfig.OriginType.WORLD,
+        lookat=kc.CENTER_POS,
+        distance=1.2,
+        elevation=-60.0
+    ) if play else ViewerConfig()
+
+    return ManagerBasedRlEnvCfg(
+        viewer=viewer,
+        scene=scene,
+        observations=observations,
+        actions=_actions,
+        events=events,
+        rewards=rewards,
+        terminations=terminations,
+        metrics=metrics,
+        sim=SimulationCfg(
+            mujoco=MujocoCfg(timestep=0.01)
+        ),
+        decimation=5,
+        episode_length_s=5.0,
+    )
+

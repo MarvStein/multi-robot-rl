@@ -62,4 +62,5 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - Architecture: architecture.md
+  - Keyboard Dimensions: keyboard_dimensions.md
   - API Reference: reference/

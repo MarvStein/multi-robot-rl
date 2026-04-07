@@ -119,3 +119,11 @@ def action_magnitude_penalty(env) -> torch.Tensor:
 def action_change_penalty(env) -> torch.Tensor:
     """Penalize the rate of change of the actions (L2 norm)."""
     return torch.norm(env.action_manager.action - env.action_manager.prev_action, dim=-1)
+
+def z_depression_reward(env, **kwargs):
+    # Retrieve the success state configured in events.py!
+    # A successful press yields a large sparse reward.
+    if hasattr(env, "key_pressed"):
+        return env.key_pressed.float() * 1.0
+    return torch.zeros(env.num_envs, device=env.device)
+

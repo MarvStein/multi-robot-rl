@@ -52,5 +52,5 @@ def ppo_runner_cfg_masspoint_keyboard() -> RslRlOnPolicyRunnerCfg:
     """Runner configuration for PPO in the masspoint keyboard task."""
     cfg = ppo_runner_cfg_masspoint_reach()
     cfg.experiment_name = "masspoint_keyboard"
-    cfg.max_iterations = 500
+    cfg.max_iterations = 3901
     return cfg

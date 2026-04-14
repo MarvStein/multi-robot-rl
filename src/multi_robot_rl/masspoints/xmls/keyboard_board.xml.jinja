@@ -1,0 +1,14 @@
+<mujoco model="keyboard_board">
+  <compiler angle="radian"/>
+  <worldbody>
+    <body name="board" pos="{{ CENTER_POS[0] }} {{ CENTER_POS[1] }} {{ CENTER_POS[2] }}">
+      {% for key in keys %}
+      <body name="{{ key.name }}" pos="{{ key.x }} {{ key.y }} {{ KEY_Z_POS_REL }}">
+        <inertial pos="0 0 0" mass="0.01" diaginertia="0.001 0.001 0.001"/>
+        <joint name="{{ key.name }}_z" type="slide" axis="0 0 1" range="{{ KEY_JOINT_RANGE[0] }} {{ KEY_JOINT_RANGE[1] }}" springref="0.5" stiffness="0.5" damping="0.1" limited="true"/>
+        <geom name="{{ key.name }}_geom" type="box" size="{{ KEY_SIZE[0] }} {{ KEY_SIZE[1] }} {{ KEY_SIZE[2] }}" rgba="0.6 0.6 0.6 1" condim="3"/>
+      </body>
+      {% endfor %}
+    </body>
+  </worldbody>
+</mujoco>

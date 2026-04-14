@@ -1,6 +1,7 @@
 """Observation functions."""
 import torch
 from mjlab.managers.scene_entity_config import SceneEntityCfg
+import multi_robot_rl.masspoints.keyboard_constants as kc
 
 
 def _stack_masspoint_state(env, masspoint_names: tuple[str, ...]) -> tuple[torch.Tensor, torch.Tensor]:
@@ -55,3 +56,31 @@ def root_lin_vel_w_2d(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     """Get the root linear velocity in 2D."""
     # Since it's attached via slide joints, its velocity is its joint velocities
     return env.scene[asset_cfg.name].data.joint_vel[:, :2]
+
+def keyboard_state_obs(env, masspoint_names: tuple[str, ...], **kwargs):
+    qpos_n = env.scene["keyboard"].data.joint_pos[:, :kc.TOTAL_KEYS]
+    if not hasattr(env, "active_key"):
+        active_targets = torch.zeros((env.num_envs, 1), device=env.device, dtype=torch.long)
+        next_targets = torch.zeros((env.num_envs, 1), device=env.device, dtype=torch.long)
+    else:
+        active_targets = env.active_key.unsqueeze(-1)
+        next_targets = env.next_key.unsqueeze(-1)
+        
+    mp_pos = torch.stack([env.scene[name].data.joint_pos[:, :3] for name in masspoint_names], dim=1)
+    mp_vel_list = []
+    for name in masspoint_names:
+        if hasattr(env.scene[name].data, "joint_vel"):
+            mp_vel_list.append(env.scene[name].data.joint_vel[:, :3])
+        else:
+            mp_vel_list.append(torch.zeros_like(env.scene[name].data.joint_pos[:, :3]))
+    mp_vel = torch.stack(mp_vel_list, dim=1)
+
+    terms = [
+        qpos_n,
+        active_targets,
+        next_targets,
+        mp_pos.reshape(env.num_envs, -1),
+        mp_vel.reshape(env.num_envs, -1),
+    ]
+        
+    return torch.cat(terms, dim=-1)

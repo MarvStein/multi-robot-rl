@@ -1,0 +1,45 @@
+# Keyboard Environment Dimensions
+
+This document is auto-generated from `keyboard_constants.py` and provides a breakdown of the resulting dimensions and coordinates for the MDP environment.
+
+## 1. Board Dimensions & Position
+The main board forms the base of the environment.
+
+*   **Center Position (X, Y, Z)**: `({{ CENTER_POS[0] }}, {{ CENTER_POS[1] }}, {{ CENTER_POS[2] }})`
+*   **Half Extents (X, Y, Z)**: `({{ KEYBOARD_SIZE[0] | round(4) }}, {{ KEYBOARD_SIZE[1] | round(4) }}, {{ KEYBOARD_SIZE[2] | round(4) }})`
+*   **Full Size (W, L, H)**: `({{ (KEYBOARD_SIZE[0] * 2) | round(4) }}, {{ (KEYBOARD_SIZE[1] * 2) | round(4) }}, {{ (KEYBOARD_SIZE[2] * 2) | round(4) }})`
+*   **Board Edges (Global)**:
+    *   **X Range**: `{{ (CENTER_POS[0] - KEYBOARD_SIZE[0]) | round(4) }}` to `{{ (CENTER_POS[0] + KEYBOARD_SIZE[0]) | round(4) }}`
+    *   **Y Range**: `{{ (CENTER_POS[1] - KEYBOARD_SIZE[1]) | round(4) }}` to `{{ (CENTER_POS[1] + KEYBOARD_SIZE[1]) | round(4) }}`
+
+## 2. Out of Bounds Limits
+The episode terminates if the masspoint exits the board limits plus a defined margin.
+
+*   **Out of Bounds Margin**: `{{ OUT_OF_BOUNDS_MARGIN }}` (equal to the masspoint radius)
+*   **Termination Limits (Global)**:
+    *   **Min X**: `{{ (CENTER_POS[0] - KEYBOARD_SIZE[0] - OUT_OF_BOUNDS_MARGIN) | round(4) }}`
+    *   **Max X**: `{{ (CENTER_POS[0] + KEYBOARD_SIZE[0] + OUT_OF_BOUNDS_MARGIN) | round(4) }}`
+    *   **Min Y**: `{{ (CENTER_POS[1] - KEYBOARD_SIZE[1] - OUT_OF_BOUNDS_MARGIN) | round(4) }}`
+    *   **Max Y**: `{{ (CENTER_POS[1] + KEYBOARD_SIZE[1] + OUT_OF_BOUNDS_MARGIN) | round(4) }}`
+
+## 3. Keyboard Grid
+The keys are arranged in a grid relative to the center's coordinate system.
+
+*   **Total Keys**: `{{ TOTAL_KEYS }}`
+*   **Grid Layout**: `{{ NUM_COLS }}` columns by `{{ NUM_ROWS }}` rows
+*   **Key Half Extents**: `({{ KEY_SIZE[0] }}, {{ KEY_SIZE[1] }}, {{ KEY_SIZE[2] }})`
+*   **Key Spacing (X, Y)**: `({{ KEY_SPACING[0] }}, {{ KEY_SPACING[1] }})`
+*   **Grid Start (Local X, Y)**: `({{ KEY_X_START | round(4) }}, {{ KEY_Y_START | round(4) }})`
+*   **Key Z Position**: 
+    *   Relative to Board Base: `{{ KEY_Z_POS_REL }}`
+    *   Top Surface (Global Z, Unpressed): `{{ KEY_SURFACE_Z | round(4) }}`
+*   **Key Press Threshold ({{ (KEY_PRESS_THRESHOLD_PCT * 100) | round(1) }}%)**: `{{ KEY_PRESS_THRESHOLD | round(4) }}` (relative Z slide compression)
+
+### Key Coordinates 
+These are the resulting global coordinates for each key (Local + Center Offset).
+
+| Key ID | Grid (col, row) | Global Center (X, Y, Z) |
+| :--- | :--- | :--- |
+{% for key in keys -%}
+| `{{ key.name }}` | `({{ key.col }}, {{ key.row }})` | `({{ (CENTER_POS[0] + key.x) | round(4) }}, {{ (CENTER_POS[1] + key.y) | round(4) }}, {{ KEY_SURFACE_Z | round(4) }})` |
+{% endfor %}

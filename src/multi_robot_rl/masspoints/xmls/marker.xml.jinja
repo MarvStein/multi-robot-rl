@@ -1,0 +1,8 @@
+<mujoco model="{{ name }}">
+  <compiler angle="radian"/>
+  <worldbody>
+    <body name="{{ name }}_marker" mocap="true" pos="0 0 0.12">
+      <geom type="box" size="{{ MARKER_SIZE[0] }} {{ MARKER_SIZE[1] }} {{ MARKER_SIZE[2] }}" mass="0.001" contype="0" conaffinity="0" rgba="{{ rgba }}"/>
+    </body>
+  </worldbody>
+</mujoco>

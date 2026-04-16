@@ -177,6 +177,7 @@ def _init_keyboard_state(env, num_masspoints: int):
         env.active_key = torch.randint(0, kc.TOTAL_KEYS, (env.num_envs,), device=env.device)
         env.next_key = torch.randint(0, kc.TOTAL_KEYS, (env.num_envs,), device=env.device)
         env.key_pressed = torch.zeros((env.num_envs,), dtype=torch.bool, device=env.device)
+        env.wrong_key_pressed = torch.zeros((env.num_envs,), dtype=torch.bool, device=env.device)
 
 def reset_keyboard_state(env, env_ids, masspoint_names: tuple[str, ...], **kwargs):
     """Event to completely reset the keyboard state for the given env_ids (e.g. episode reset)."""
@@ -191,9 +192,16 @@ def reset_keyboard_state(env, env_ids, masspoint_names: tuple[str, ...], **kwarg
     env.next_key[env_ids] = torch.randint(0, kc.TOTAL_KEYS, (len(env_ids),), device=env.device)
     env.agent_freeze_ticks[env_ids] = 0
     env.key_pressed[env_ids] = False
+    env.wrong_key_pressed[env_ids] = False
     
     # We don't need to manually update markers here because update_keyboard_state 
     # will run during the very next `step` event before rendering!
+
+def _detect_key_presses(env, env_ids):
+    """Detects which keys are currently pressed beyond the threshold."""
+    key_qpos = env.scene["keyboard"].data.joint_pos[env_ids]
+    is_pressed = key_qpos < kc.KEY_PRESS_THRESHOLD
+    return key_qpos, is_pressed
 
 def update_keyboard_state(env, env_ids, masspoint_names: tuple[str, ...], **kwargs):
     if env_ids is None:
@@ -202,14 +210,18 @@ def update_keyboard_state(env, env_ids, masspoint_names: tuple[str, ...], **kwar
     num_masspoints = len(masspoint_names)
     _init_keyboard_state(env, num_masspoints)
         
-    # Determine the qpos of the active key to register a successful press
-    # active_key_qpos shape: [len(env_ids)]
-    key_qpos = env.scene["keyboard"].data.joint_pos
-    active_key_qpos = key_qpos[env_ids, env.active_key[env_ids]]
-    next_key_qpos = key_qpos[env_ids, env.next_key[env_ids]]
+    key_qpos_subset, is_pressed = _detect_key_presses(env, env_ids)
 
-    env_success = active_key_qpos < kc.KEY_PRESS_THRESHOLD
+    # Determine the status of the active key to register a successful press
+    active_keys = env.active_key[env_ids]
+    env_success = is_pressed[torch.arange(len(env_ids)), active_keys]
     env.key_pressed[env_ids] = env_success
+    
+    # Determine if any wrong key is pressed
+    active_mask = torch.zeros_like(is_pressed)
+    active_mask[torch.arange(len(env_ids)), active_keys] = True
+    wrong_pressed = is_pressed & (~active_mask)
+    env.wrong_key_pressed[env_ids] = wrong_pressed.any(dim=1)
     
     # 1. EXPENSIVE LOGIC: Only sample new keys for environments that ACTUALLY succeeded
     success_indices = env_success.nonzero(as_tuple=False).flatten()
@@ -251,6 +263,9 @@ def update_keyboard_state(env, env_ids, masspoint_names: tuple[str, ...], **kwar
                 env.scene[name].data.joint_vel[agent_frozen_mask] = 0.0
     # 2. VISUAL LOGIC: Make the markers physically track the keys downward every step
     # We add the negative qpos (depression distance) to the static MARKER_Z altitude
+    active_key_qpos = key_qpos_subset[torch.arange(len(env_ids)), env.active_key[env_ids]]
+    next_key_qpos = key_qpos_subset[torch.arange(len(env_ids)), env.next_key[env_ids]]
+    
     z_active = kc.MARKER_Z + active_key_qpos
     z_next = kc.MARKER_Z + next_key_qpos
     

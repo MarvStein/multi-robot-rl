@@ -127,3 +127,10 @@ def z_depression_reward(env, **kwargs):
         return env.key_pressed.float() * 1.0
     return torch.zeros(env.num_envs, device=env.device)
 
+def wrong_key_penalty(env, **kwargs):
+    # Retrieve the wrong key press state configured in events.py!
+    # Any wrong key pressed yields a penalty.
+    if hasattr(env, "wrong_key_pressed"):
+        return env.wrong_key_pressed.float() * 1.0
+    return torch.zeros(env.num_envs, device=env.device)
+

@@ -12,6 +12,7 @@ from mjlab.managers.observation_manager import ObservationGroupCfg, ObservationT
 from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
+from mjlab.managers.curriculum_manager import CurriculumTermCfg
 from mjlab.managers.metrics_manager import MetricsTermCfg
 from mjlab.sim import MujocoCfg, SimulationCfg
 from mjlab.viewer.viewer_config import ViewerConfig
@@ -337,10 +338,14 @@ def masspoint_keyboard_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
             func=mdp.rewards.z_depression_reward,
             weight=1.0,
         ),
-        # "total_command": RewardTermCfg(
-        #     func=mdp.rewards.action_magnitude_penalty,
-        #     weight=-0.1,
-        # ),
+        "wrong_key_penalty": RewardTermCfg(
+            func=mdp.rewards.wrong_key_penalty,
+            weight=-0.0,
+        ),
+        "total_command": RewardTermCfg(
+            func=mdp.rewards.action_magnitude_penalty,
+            weight=-0.01,
+        ),
         "out_of_bounds_penalty": RewardTermCfg(
             func=mjlab_rewards.is_terminated,
             weight=-10.0,
@@ -390,6 +395,23 @@ def masspoint_keyboard_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         )
     }
 
+    # 8. Curriculum
+    curriculum = {
+        "wrong_key_penalty_schedule": CurriculumTermCfg(
+            func=mdp.curriculums.metric_reward_curriculum,
+            params={
+                "reward_name": "wrong_key_penalty",
+                "metric_name": "key_press_fraction",
+                "alpha": 1e-4,
+                "stages": [
+                    {"metric_value": 0.0, "weight": 0.0},
+                    {"metric_value": 0.05, "weight": -0.1},
+                    {"metric_value": 0.075, "weight": -0.5},
+                ],
+            }
+        )
+    }
+
     viewer = ViewerConfig(
         origin_type=ViewerConfig.OriginType.WORLD,
         lookat=kc.CENTER_POS,
@@ -406,6 +428,7 @@ def masspoint_keyboard_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         rewards=rewards,
         terminations=terminations,
         metrics=metrics,
+        curriculum=curriculum,
         sim=SimulationCfg(
             mujoco=MujocoCfg(timestep=0.01)
         ),

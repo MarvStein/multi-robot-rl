@@ -1,0 +1,16 @@
+{% from "_axis_system.jinja" import axis_sites %}
+<mujoco model="{{ name }}">
+  <compiler angle="radian"/>
+  <worldbody>
+    <body name="{{ name }}_marker" mocap="true" pos="0 0 0.12">
+      <geom type="box"
+            size="{{ HX }} {{ HY }} {{ HZ }}"
+            pos="0 0 {{ HZ }}"
+            mass="0.001"
+            contype="0"
+            conaffinity="0"
+            rgba="{{ rgba }}"/>
+      {{ axis_sites(HX * 0.7, HY * 0.7, HZ * 0.7, HZ * 2) }}
+    </body>
+  </worldbody>
+</mujoco>

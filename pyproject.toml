@@ -10,8 +10,6 @@ dependencies = [
 
 [project.scripts]
 multi-robot-rl = "multi_robot_rl:main"
-train = "multi_robot_rl.cli_shims:train_main"
-play = "multi_robot_rl.cli_shims:play_main"
 
 [project.entry-points."mjlab.tasks"]
 multi_robot_rl = "multi_robot_rl"

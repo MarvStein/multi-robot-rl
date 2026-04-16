@@ -1,0 +1,16 @@
+{% macro axis_sites(arm_x, arm_y, arm_z, z_offset=0) %}
+      <site name="axis_x" type="cylinder"
+            pos="{{ arm_x * 0.5 }} 0 {{ z_offset }}"
+            size="0.006 {{ arm_x * 0.5 }}"
+            euler="0 1.5708 0"
+            rgba="1 0 0 1"/>
+      <site name="axis_y" type="cylinder"
+            pos="0 {{ arm_y * 0.5 }} {{ z_offset }}"
+            size="0.006 {{ arm_y * 0.5 }}"
+            euler="1.5708 0 0"
+            rgba="0 1 0 1"/>
+      <site name="axis_z" type="cylinder"
+            pos="0 0 {{ z_offset + arm_z * 0.5 }}"
+            size="0.006 {{ arm_z * 0.5 }}"
+            rgba="0 0 1 1"/>
+{% endmacro %}

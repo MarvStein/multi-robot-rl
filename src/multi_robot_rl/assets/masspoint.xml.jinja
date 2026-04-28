@@ -1,0 +1,19 @@
+<mujoco model="masspoint_3d">
+  <compiler angle="radian"/>
+  <worldbody>
+    <body name="masspoint" pos="0 0 0"{% if GRAVCOMP %} gravcomp="1"{% endif %}>
+        <inertial pos="0.0 0.0 0.0" mass="0.01" diaginertia="0.001 0.001 0.001"/>
+        <joint name="mp_x" pos="0.0 0.0 0.0" axis="1 0 0" type="slide" limited="true" range="{{ MP_X_RANGE[0] }} {{ MP_X_RANGE[1] }}" damping="0.1"/>
+        <joint name="mp_y" pos="0.0 0.0 0.0" axis="0 1 0" type="slide" limited="true" range="{{ MP_Y_RANGE[0] }} {{ MP_Y_RANGE[1] }}" damping="0.1"/>
+        <joint name="mp_z" pos="0.0 0.0 0.0" axis="0 0 1" type="slide" {% if SPRING_STIFFNESS %}springref="{{ MP_Z_RANGE[1] }}" stiffness="{{ SPRING_STIFFNESS }}"{% else %}stiffness="0.0"{% endif %} limited="true" range="{{ MP_Z_RANGE[0] }} {{ MP_Z_RANGE[1] }}" damping="0.1"/>
+        <geom rgba="0 0 0 1" size="{{ MP_RADIUS }}" type="sphere" gap="0.0"/>
+        <site name="masspoint_center" pos="0.0 0.0 0.0" size="0.001" rgba="0 0 0 0"/>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <velocity kv="0.5" name="mp_x_a" joint="mp_x" ctrllimited="true" ctrlrange="-1.0 1.0"/>
+    <velocity kv="0.5" name="mp_y_a" joint="mp_y" ctrllimited="true" ctrlrange="-1.0 1.0"/>
+    <velocity kv="0.5" name="mp_z_a" joint="mp_z" ctrllimited="true" ctrlrange="-1.0 1.0"/>
+  </actuator>
+</mujoco>

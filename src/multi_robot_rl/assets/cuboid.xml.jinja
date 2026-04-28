@@ -1,0 +1,19 @@
+{% from "_axis_system.jinja" import axis_sites %}
+<mujoco model="cuboid_3dof">
+  <compiler angle="radian"/>
+  <worldbody>
+    <body name="cuboid" pos="0 0 0">
+      <joint name="cuboid_x"   type="slide" axis="1 0 0" limited="true" range="{{ X_RANGE[0] }} {{ X_RANGE[1] }}" damping="2.0"/>
+      <joint name="cuboid_y"   type="slide" axis="0 1 0" limited="true" range="{{ Y_RANGE[0] }} {{ Y_RANGE[1] }}" damping="2.0"/>
+      <joint name="cuboid_yaw" type="hinge" axis="0 0 1" limited="false" damping="1.0"/>
+      <geom type="box"
+            size="{{ HX }} {{ HY }} {{ HZ }}"
+            pos="0 0 {{ HZ }}"
+            mass="{{ MASS }}"
+            rgba="{{ rgba }}"
+            friction="0.8 0.005 0.0001"/>
+      <site name="cuboid_center" pos="0 0 {{ HZ }}" size="0.001" rgba="0 0 0 0"/>
+      {{ axis_sites(HX * 0.7, HY * 0.7, HZ * 0.7, HZ * 2) }}
+    </body>
+  </worldbody>
+</mujoco>

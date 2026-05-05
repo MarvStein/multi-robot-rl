@@ -23,9 +23,9 @@
         <geom type="mesh" contype="0" conaffinity="0" group="2"/>
       </default>
       <default class="collision">
-        <geom type="capsule" contype="2" conaffinity="0" group="3"/>
+        <geom type="capsule" contype="1" conaffinity="1" group="3"/>
         <default class="eef_collision">
-          <geom type="cylinder" contype="4" conaffinity="1"/>
+          <geom type="cylinder" contype="1" conaffinity="1"/>
         </default>
       </default>
       <site size="0.001" rgba="0.5 0.5 0.5 0.3" group="4"/>
@@ -72,7 +72,8 @@
         <geom mesh="shoulder_0" material="urblue" class="visual"/>
         <geom mesh="shoulder_1" material="black" class="visual"/>
         <geom mesh="shoulder_2" material="jointgray" class="visual"/>
-        <geom class="collision" size="0.078 0.08" pos="0 0 -0.05"/>
+        <!-- see https://github.com/google-deepmind/mujoco_menagerie/issues/192 -->
+        <geom class="collision" size="0.06 0.07" pos="0 0 -0.05"/>
         <body name="upper_arm_link" pos="0 0.176 0" quat="1 0 1 0">
           <inertial pos="0 0 0.3065" mass="12.93" diaginertia="0.423074 0.423074 0.0363656"/>
           <joint name="shoulder_lift_joint" class="size4"/>

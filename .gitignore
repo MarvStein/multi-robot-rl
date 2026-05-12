@@ -25,3 +25,5 @@ docs/keyboard_dimensions.md
 # Claude
 .claude/
 memory/
+
+tea_debug.log

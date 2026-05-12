@@ -62,9 +62,8 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
     for robot in robots:
         obs_terms.update(robot.obs_terms)
     obs_terms.update({
-        "goal_states_obs": ObservationTermCfg(
-            func=reach_mdp.goals_state_obs,
-        ),
+        "goal_states_obs": ObservationTermCfg(func=reach_mdp.goals_position_obs),
+        "goal_reached_mask_obs": ObservationTermCfg(func=reach_mdp.goal_reached_mask_obs),
     })
     observations = {
         "actor": ObservationGroupCfg(obs_terms),
@@ -83,7 +82,7 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         ),
         "action_magnitude": RewardTermCfg(
             func=common_mdp.action_magnitude_penalty,
-            weight=-0.01,
+            weight=-0.0,
         ),
         "out_of_bounds_penalty": RewardTermCfg(
             func=mjlab_rewards.is_terminated,

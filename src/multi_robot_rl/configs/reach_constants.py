@@ -5,7 +5,7 @@ from math import pi, radians
 # ROBOT COUNTS
 # =========================================================
 
-NUM_MASSPOINTS = 1
+NUM_MASSPOINTS = 2
 NUM_UR10S = 0
 
 # =========================================================

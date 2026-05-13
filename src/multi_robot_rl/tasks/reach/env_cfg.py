@@ -53,6 +53,7 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
     scene = SceneCfg(
         terrain=TerrainEntityCfg(terrain_type="plane"),
         entities=entities,
+        sensors=common_mdp.make_inter_robot_contact_sensors(robots),
         num_envs=1 if play else 2048,
         env_spacing=3.0,
     )
@@ -87,6 +88,11 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
             func=reach_mdp.out_of_bounds,
             params={"robots": robots},
             weight=-10.0,
+        ),
+        "collision_penalty": RewardTermCfg(
+            func=common_mdp.robot_collision_penalty,
+            params={"robots": robots},
+            weight=-1.0,
         ),
     }
 

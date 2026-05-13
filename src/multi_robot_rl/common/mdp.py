@@ -1,6 +1,7 @@
 import torch
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.envs import ManagerBasedRlEnv
+from mjlab.sensor import ContactSensorCfg, ContactMatch
 from multi_robot_rl.assets.robots.base import RobotConfig
 
 
@@ -37,10 +38,46 @@ def action_change_penalty(env: ManagerBasedRlEnv) -> torch.Tensor:
     # TODO: check mjlab.envs.mdp.rewards for built-in
     raise NotImplementedError()
 
-def robot_collision_penalty(env: ManagerBasedRlEnv, robot_prefix: str) -> torch.Tensor:
-    """Generic penalty if there's a collision on the specific robot"""
-    # TODO implement robot_collision_penalty
-    raise NotImplementedError()
+def make_inter_robot_contact_sensors(robots: list[RobotConfig]) -> tuple[ContactSensorCfg, ...]:
+    """Create one ContactSensor per robot pair to detect physical collisions via MuJoCo contact data.
+
+    Each sensor monitors robot_i's full body subtree for contacts with robot_j's subtree.
+    Add the returned tuple to SceneCfg.sensors and pass robots to robot_collision_penalty.
+    """
+    sensors = []
+    for i, robot_i in enumerate(robots):
+        for j, robot_j in enumerate(robots):
+            if j <= i:
+                continue
+            sensors.append(ContactSensorCfg(
+                name=f"contact_{robot_i.name}_vs_{robot_j.name}",
+                primary=ContactMatch(mode="subtree", pattern=robot_i.root_body, entity=robot_i.name),
+                secondary=ContactMatch(mode="subtree", pattern=robot_j.root_body, entity=robot_j.name),
+                fields=("found",),
+                reduce="none",
+                num_slots=1,
+            ))
+    return tuple(sensors)
+
+
+def robot_collision_penalty(env: ManagerBasedRlEnv, robots: list[RobotConfig]) -> torch.Tensor:
+    """Return 1.0 for each env where any two robots are physically in contact, else 0.0.
+
+    Requires ContactSensors from make_inter_robot_contact_sensors() to be present in the scene.
+    """
+    if len(robots) < 2:
+        return torch.zeros(env.num_envs, device=env.device)
+
+    collision = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+    for i, robot_i in enumerate(robots):
+        for j, robot_j in enumerate(robots):
+            if j <= i:
+                continue
+            sensor = env.scene[f"contact_{robot_i.name}_vs_{robot_j.name}"]
+            found = sensor.data.found  # [num_envs, P] where P=1 (root body)
+            collision |= (found > 0).any(dim=-1)
+
+    return collision.float()
 
 def joint_pos_abs(env: ManagerBasedRlEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     """Return the absolute joint positions of the asset."""

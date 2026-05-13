@@ -45,7 +45,7 @@ def ppo_runner_cfg_reach_task() -> RslRlOnPolicyRunnerCfg:
     """Runner configuration for PPO in the reach task."""
     cfg = ppo_runner_cfg_default()
     cfg.experiment_name = "reach_task"
-    cfg.max_iterations = 500
+    cfg.max_iterations = 1 + 4000
     return cfg
 
 def ppo_runner_cfg_type_task() -> RslRlOnPolicyRunnerCfg:

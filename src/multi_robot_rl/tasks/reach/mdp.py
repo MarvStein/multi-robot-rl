@@ -71,6 +71,7 @@ def out_of_bounds(env: ManagerBasedRlEnv, robots: list[RobotConfig], **kwargs) -
 def goal_reached_reward(
     env: ManagerBasedRlEnv,
     robots: list[RobotConfig],
+    play: bool = False,
     **kwargs,
 ) -> torch.Tensor:
     """Sparse one-time reward when any robot newly reaches a goal."""
@@ -84,6 +85,19 @@ def goal_reached_reward(
 
     newly_reached = any_robot_reached & ~env._goal_reached_mask
     env._goal_reached_mask |= newly_reached
+
+    if play and newly_reached.any():
+        # hide markers of (newly) reached goals by moving them below the floor (purely visual)
+        for i in range(reach_constants.NUM_GOALS):
+            env_ids = newly_reached[:, i].nonzero(as_tuple=False).squeeze(-1)
+            if env_ids.numel() > 0:
+                n = env_ids.numel()
+                hidden_poses = quat_helpers.position_to_pose(
+                    torch.zeros(n, device=env.device),
+                    torch.zeros(n, device=env.device),
+                    torch.full((n,), -100.0, device=env.device),
+                )
+                env.scene[f"goal_{i}"].write_mocap_pose_to_sim(mocap_pose=hidden_poses, env_ids=env_ids)
 
     return newly_reached.float().sum(dim=1)  # (num_envs,)
 

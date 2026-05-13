@@ -83,7 +83,7 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         ),
         "action_rate_penalty": RewardTermCfg(
             func=mjlab_rewards.action_rate_l2,
-            weight=-0.0,
+            weight=-0.01,
         ),
         "out_of_bounds_penalty": RewardTermCfg(
             func=reach_mdp.out_of_bounds,

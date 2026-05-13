@@ -5,6 +5,7 @@ from mjlab.managers.scene_entity_config import SceneEntityCfg
 from multi_robot_rl.assets.robots.base import RobotConfig
 import multi_robot_rl.configs.type_constants as type_constants
 import multi_robot_rl.common.quat_helpers as quat_helpers
+from multi_robot_rl.common.mdp import get_ee_positions
 
 # =========================================================
 # OBSERVATIONS
@@ -32,15 +33,6 @@ def keyboard_state_obs(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 # TERMINATIONS
 # =========================================================
 
-def _get_ee_configs(env: ManagerBasedRlEnv, robots: list[RobotConfig]) -> list[SceneEntityCfg]:
-    """Helper to lazily create and resolve SceneEntityCfg for all robot end-effectors."""
-    if not hasattr(env, "_ee_site_cfgs"):
-        cfgs = [SceneEntityCfg(r.name, site_names=(r.end_effector_site,)) for r in robots]
-        for cfg in cfgs:
-            cfg.resolve(env.scene)
-        env._ee_site_cfgs = list(cfgs)
-    return env._ee_site_cfgs
-
 def _get_joint_configs(env: ManagerBasedRlEnv, robots: list[RobotConfig]) -> list[SceneEntityCfg]:
     """Helper to lazily create and resolve SceneEntityCfg for all actuated joints."""
     if not hasattr(env, "_joint_cfgs"):
@@ -52,15 +44,11 @@ def _get_joint_configs(env: ManagerBasedRlEnv, robots: list[RobotConfig]) -> lis
 
 def out_of_bounds(env: ManagerBasedRlEnv, robots: list[RobotConfig], **kwargs):
     """Terminate if any robot strays too far from the keyboard in XY or out of z-bounds."""
-    ee_cfgs = _get_ee_configs(env, robots)
-    out_mask = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
-    for cfg in ee_cfgs:
-        pos = env.scene[cfg.name].data.site_pos_w[:, cfg.site_ids, :].squeeze(1)
-        out_x = torch.abs(pos[:, 0] - type_constants.CENTER_POS[0]) > (type_constants.KEYBOARD_SIZE[0] + type_constants.OUT_OF_BOUNDS_MARGIN)
-        out_y = torch.abs(pos[:, 1] - type_constants.CENTER_POS[1]) > (type_constants.KEYBOARD_SIZE[1] + type_constants.OUT_OF_BOUNDS_MARGIN)
-        out_z = (pos[:, 2] > type_constants.EE_Z_MAX) | (pos[:, 2] < type_constants.EE_Z_MIN)
-        out_mask = out_mask | out_x | out_y | out_z
-    return out_mask
+    ee_positions = get_ee_positions(env, robots)  # (num_envs, num_robots, 3)
+    out_x = torch.abs(ee_positions[:, :, 0] - type_constants.CENTER_POS[0]) > (type_constants.KEYBOARD_SIZE[0] + type_constants.OUT_OF_BOUNDS_MARGIN)
+    out_y = torch.abs(ee_positions[:, :, 1] - type_constants.CENTER_POS[1]) > (type_constants.KEYBOARD_SIZE[1] + type_constants.OUT_OF_BOUNDS_MARGIN)
+    out_z = (ee_positions[:, :, 2] > type_constants.EE_Z_MAX) | (ee_positions[:, :, 2] < type_constants.EE_Z_MIN)
+    return (out_x | out_y | out_z).any(dim=1)
 
 # =========================================================
 # REWARDS
@@ -203,16 +191,7 @@ def _handle_successful_presses(env: ManagerBasedRlEnv, success_env_ids: torch.Te
     active_key_pos = torch.stack([x_active, y_active], dim=-1)
 
     # Collect all generic robot end-effector positions
-    ee_cfgs = _get_ee_configs(env, robots)
-    ee_pos_list = []
-    for cfg in ee_cfgs:
-        # mjlab standard: Extract all environment EEs securely first, squeeze, AND THEN index env IDs:
-        # Avoids advanced index broadcasting clashes between success_env_ids tensor and site_ids list.
-        all_ee_pos = env.scene[cfg.name].data.site_pos_w[:, cfg.site_ids, :2].squeeze(1)
-        tmp_pos = all_ee_pos[success_env_ids]
-        ee_pos_list.append(tmp_pos)
-    
-    ee_pos_stack = torch.stack(ee_pos_list, dim=1)
+    ee_pos_stack = get_ee_positions(env, robots)[success_env_ids, :, :2]  # (n_success, num_robots, 2)
     
     # Find the nearest end-effector
     dists = torch.norm(ee_pos_stack - active_key_pos.unsqueeze(1), dim=-1)

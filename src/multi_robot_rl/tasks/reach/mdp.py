@@ -1,22 +1,10 @@
 import torch
 from mjlab.envs import ManagerBasedRlEnv
-from mjlab.managers.scene_entity_config import SceneEntityCfg
 
 from multi_robot_rl.assets.robots.base import RobotConfig
 import multi_robot_rl.configs.reach_constants as reach_constants
 import multi_robot_rl.common.quat_helpers as quat_helpers
-
-# =========================================================
-# HELPERS
-# =========================================================
-
-def _get_ee_configs(env: ManagerBasedRlEnv, robots: list[RobotConfig]) -> list[SceneEntityCfg]:
-    if not hasattr(env, "_reach_ee_site_cfgs"):
-        cfgs = [SceneEntityCfg(r.name, site_names=(r.end_effector_site,)) for r in robots]
-        for cfg in cfgs:
-            cfg.resolve(env.scene)
-        env._reach_ee_site_cfgs = list(cfgs)
-    return env._reach_ee_site_cfgs
+from multi_robot_rl.common.mdp import get_ee_positions
 
 def _init_reach_state(env: ManagerBasedRlEnv) -> None:
     if not hasattr(env, "goal_positions"):
@@ -53,16 +41,11 @@ def all_goals_reached(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 
 def out_of_bounds(env: ManagerBasedRlEnv, robots: list[RobotConfig], **kwargs) -> torch.Tensor:
     """Terminate if any robot's EE leaves the allowed cylindrical workspace."""
-    ee_cfgs = _get_ee_configs(env, robots)
-    out_mask = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
-    for cfg in ee_cfgs:
-        ee_pos = env.scene[cfg.name].data.site_pos_w[:, cfg.site_ids, :].squeeze(1)  # (num_envs, 3)
-        r = torch.norm(ee_pos[:, :2], dim=-1)
-        z = ee_pos[:, 2]
-        out_mask |= r > reach_constants.OUT_OF_BOUNDS_RADIUS
-        out_mask |= z > reach_constants.OUT_OF_BOUNDS_HEIGHT
-        out_mask |= z < 0.0
-    return out_mask
+    ee_positions = get_ee_positions(env, robots)  # (num_envs, num_robots, 3)
+    r = torch.norm(ee_positions[:, :, :2], dim=-1)  # (num_envs, num_robots)
+    z = ee_positions[:, :, 2]
+    out = (r > reach_constants.OUT_OF_BOUNDS_RADIUS) | (z > reach_constants.OUT_OF_BOUNDS_HEIGHT) | (z < 0.0)
+    return out.any(dim=1)
 
 # =========================================================
 # REWARDS
@@ -75,11 +58,7 @@ def goal_reached_reward(
     **kwargs,
 ) -> torch.Tensor:
     """Sparse one-time reward when any robot newly reaches a goal."""
-    ee_cfgs = _get_ee_configs(env, robots)
-    ee_positions = torch.stack(
-        [env.scene[cfg.name].data.site_pos_w[:, cfg.site_ids, :].squeeze(1) for cfg in ee_cfgs],
-        dim=1,
-    )  # (num_envs, num_robots, 3)
+    ee_positions = get_ee_positions(env, robots)  # (num_envs, num_robots, 3)
     distances = torch.cdist(ee_positions, env.goal_positions)  # (num_envs, num_robots, NUM_GOALS)
     any_robot_reached = (distances < reach_constants.GOAL_REACH_THRESHOLD).any(dim=1)  # (num_envs, NUM_GOALS)
 

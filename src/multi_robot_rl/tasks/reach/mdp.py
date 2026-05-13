@@ -26,6 +26,7 @@ def _init_reach_state(env: ManagerBasedRlEnv) -> None:
         env._goal_reached_mask = torch.zeros(
             (env.num_envs, reach_constants.NUM_GOALS), dtype=torch.bool, device=env.device
         )
+        env._final_goal_reached_fraction = torch.zeros(env.num_envs, device=env.device)
 
 # =========================================================
 # OBSERVATIONS
@@ -91,8 +92,12 @@ def goal_reached_reward(
 # =========================================================
 
 def goal_reached_fraction(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
-    """Returns mean fraction of goals currently reached."""
-    return env._goal_reached_mask.float().mean(dim=1)
+    """Returns the fraction of goals reached at the end of the previous episode."""
+    # Note: if we were to return env._goal_reached_mask.float().mean(dim=1),
+    # then because mjlab time-averages metrics over the episode length,
+    # it would reflect "the speed of reaching goals" as well.
+    _init_reach_state(env)
+    return env._final_goal_reached_fraction
 
 # =========================================================
 # EVENTS & RESETS
@@ -104,6 +109,7 @@ def reset_goal_state(env: ManagerBasedRlEnv, env_ids, **kwargs) -> None:
         env_ids = torch.arange(env.num_envs, device=env.device)
 
     _init_reach_state(env)
+    env._final_goal_reached_fraction[env_ids] = env._goal_reached_mask[env_ids].float().mean(dim=1)
     env._goal_reached_mask[env_ids] = False
 
     # Uniform distribution in a disk: r = R * sqrt(U), theta = 2*pi*U

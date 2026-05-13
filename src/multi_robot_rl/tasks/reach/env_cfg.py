@@ -136,4 +136,5 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         ),
         decimation=5,
         episode_length_s=5.0,
+        scale_rewards_by_dt=False
     )

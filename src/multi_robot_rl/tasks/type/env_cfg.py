@@ -64,6 +64,7 @@ def make_type_env(play: bool = False) -> ManagerBasedRlEnvCfg:
     scene = SceneCfg(
         terrain=TerrainEntityCfg(terrain_type="plane"),
         entities=entities,
+        sensors=common_mdp.make_inter_robot_contact_sensors(robots),
         num_envs=1 if play else 2048,
         env_spacing=3.0
     )
@@ -100,6 +101,11 @@ def make_type_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         "out_of_bounds_penalty": RewardTermCfg(
             func=mjlab_rewards.is_terminated,
             weight=-10.0,
+        ),
+        "collision_penalty": RewardTermCfg(
+            func=common_mdp.robot_collision_penalty,
+            params={"robots": robots},
+            weight=-1.0,
         ),
     }
 

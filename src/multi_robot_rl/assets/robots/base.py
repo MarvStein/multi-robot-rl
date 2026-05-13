@@ -11,6 +11,7 @@ class RobotConfig:
     entity_cfg: EntityCfg
     joint_names: tuple[str, ...]
     end_effector_site: str
+    root_body: str # name of the root of the kinematic chain, used for inter-robot collision checking
     action_terms: dict[str, ActionTermCfg]
     obs_terms: dict[str, ObservationTermCfg]
     reset_terms: dict[str, EventTermCfg]

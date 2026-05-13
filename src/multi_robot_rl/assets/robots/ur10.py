@@ -184,6 +184,7 @@ def _get_ur10_robot_config(
         name=name,
         joint_names=UR10_JOINT_NAMES,
         end_effector_site="attachment_site",
+        root_body="base",
         action_terms={
             f"{name}_position": actions.RelativeJointPositionActionCfg(
                 entity_name=name,

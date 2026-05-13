@@ -127,6 +127,7 @@ def _get_masspoint_robot_config(
         name=name,
         joint_names=_MP_JOINT_NAMES,
         end_effector_site="masspoint_center",
+        root_body="masspoint",
         action_terms={
             f"{name}_velocity": actions.JointVelocityActionCfg(
                 entity_name=name,

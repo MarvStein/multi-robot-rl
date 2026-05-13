@@ -29,15 +29,6 @@ def ee_pos_obs(env: ManagerBasedRlEnv, robot_name: str, ee_site: str) -> torch.T
     cfg = _get_ee_config(env, robot_name, ee_site)
     return env.scene[cfg.name].data.site_pos_w[:, cfg.site_ids, :].squeeze(1)
 
-def action_magnitude_penalty(env: ManagerBasedRlEnv) -> torch.Tensor:
-    """Action magnitude generic penalty using L2 norm."""
-    return torch.norm(env.action_manager.action, dim=-1)
-
-def action_change_penalty(env: ManagerBasedRlEnv) -> torch.Tensor:
-    """Penalize the rate of change of the actions (L2 norm)."""
-    # TODO: check mjlab.envs.mdp.rewards for built-in
-    raise NotImplementedError()
-
 def make_inter_robot_contact_sensors(robots: list[RobotConfig]) -> tuple[ContactSensorCfg, ...]:
     """Create one ContactSensor per robot pair to detect physical collisions via MuJoCo contact data.
 

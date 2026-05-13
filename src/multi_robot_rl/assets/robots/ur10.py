@@ -2,7 +2,7 @@
 import mujoco
 import torch
 from pathlib import Path
-from math import pi, sin, cos
+from math import pi, sin, cos, radians
 
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.managers.observation_manager import ObservationTermCfg
@@ -189,7 +189,7 @@ def _get_ur10_robot_config(
             f"{name}_position": actions.RelativeJointPositionActionCfg(
                 entity_name=name,
                 actuator_names=UR10_JOINT_NAMES,
-                scale=0.3,
+                scale=0.05 * radians(120), # max 120°/s with 50ms control step
             )
         },
         obs_terms={

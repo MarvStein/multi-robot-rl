@@ -76,7 +76,7 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
     rewards = {
         "goal_reached": RewardTermCfg(
             func=reach_mdp.goal_reached_reward,
-            params={"robots": robots},
+            params={"robots": robots, "play": play},
             weight=1.0,
         ),
         "action_magnitude": RewardTermCfg(

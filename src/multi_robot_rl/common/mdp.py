@@ -1,6 +1,32 @@
 import torch
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.envs import ManagerBasedRlEnv
+from multi_robot_rl.assets.robots.base import RobotConfig
+
+
+def _get_ee_config(env: ManagerBasedRlEnv, robot_name: str, ee_site: str) -> SceneEntityCfg:
+    """Lazily create and resolve a per-robot EE site config, cached on env."""
+    key = f"_ee_site_cfg_{robot_name}"
+    if not hasattr(env, key):
+        cfg = SceneEntityCfg(robot_name, site_names=(ee_site,))
+        cfg.resolve(env.scene)
+        setattr(env, key, cfg)
+    return getattr(env, key)
+
+
+def get_ee_positions(env: ManagerBasedRlEnv, robots: list[RobotConfig]) -> torch.Tensor:
+    """Return world-frame EE positions for all robots: (num_envs, num_robots, 3)."""
+    cfgs = [_get_ee_config(env, r.name, r.end_effector_site) for r in robots]
+    return torch.stack(
+        [env.scene[cfg.name].data.site_pos_w[:, cfg.site_ids, :].squeeze(1) for cfg in cfgs],
+        dim=1,
+    )
+
+
+def ee_pos_obs(env: ManagerBasedRlEnv, robot_name: str, ee_site: str) -> torch.Tensor:
+    """Obs-term: world-frame EE position for a single robot: (num_envs, 3)."""
+    cfg = _get_ee_config(env, robot_name, ee_site)
+    return env.scene[cfg.name].data.site_pos_w[:, cfg.site_ids, :].squeeze(1)
 
 def action_magnitude_penalty(env: ManagerBasedRlEnv) -> torch.Tensor:
     """Action magnitude generic penalty using L2 norm."""

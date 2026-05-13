@@ -192,6 +192,7 @@ def _get_ur10_robot_config(
             )
         },
         obs_terms={
+            f"{name}_ee_pos": ObservationTermCfg(func=mdp_common.ee_pos_obs, params={"robot_name": name, "ee_site": "attachment_site"}),
             f"{name}_joint_pos": ObservationTermCfg(func=mdp_common.joint_pos_abs, params={"asset_cfg": asset_cfg}),
             f"{name}_joint_vel": ObservationTermCfg(func=mdp_common.joint_vel_abs, params={"asset_cfg": asset_cfg}),
         },

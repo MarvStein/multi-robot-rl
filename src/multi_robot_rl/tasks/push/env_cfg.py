@@ -89,9 +89,9 @@ def make_push_env(play: bool = False) -> ManagerBasedRlEnvCfg:
             func=push_mdp.cuboid_placed_reward,
             weight=1.0,
         ),
-                "action_magnitude": RewardTermCfg(
-            func=common_mdp.action_magnitude_penalty,
-            weight=-0.01,
+        "action_rate_penalty": RewardTermCfg(
+            func=mjlab_rewards.action_rate_l2,
+            weight=-0.0,
         ),
         "out_of_bounds_penalty": RewardTermCfg(
             func=mjlab_rewards.is_terminated,

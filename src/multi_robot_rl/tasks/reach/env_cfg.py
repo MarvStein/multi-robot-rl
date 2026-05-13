@@ -11,7 +11,6 @@ from mjlab.scene import SceneCfg
 from mjlab.sim import SimulationCfg, MujocoCfg
 from mjlab.viewer.viewer_config import ViewerConfig
 from mjlab.envs.mdp import terminations as mjlab_terminations
-from mjlab.envs.mdp import rewards as mjlab_rewards
 
 # Assets and Robots imports
 from multi_robot_rl.assets.objects import get_reach_goal_marker_entity_cfg
@@ -85,7 +84,8 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
             weight=-0.0,
         ),
         "out_of_bounds_penalty": RewardTermCfg(
-            func=mjlab_rewards.is_terminated,
+            func=reach_mdp.out_of_bounds,
+            params={"robots": robots},
             weight=-10.0,
         ),
     }
@@ -96,6 +96,7 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
             func=reach_mdp.out_of_bounds,
             params={"robots": robots},
         ),
+        "all_goals_reached": TerminationTermCfg(func=reach_mdp.all_goals_reached),
     }
 
     events = {

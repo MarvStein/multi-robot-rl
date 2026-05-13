@@ -45,6 +45,11 @@ def goal_reached_mask_obs(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 # TERMINATIONS
 # =========================================================
 
+def all_goals_reached(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
+    """Return a tensor indicating in which envs all goals have been reached."""
+    _init_reach_state(env)
+    return env._goal_reached_mask.all(dim=1)
+
 def out_of_bounds(env: ManagerBasedRlEnv, robots: list[RobotConfig], **kwargs) -> torch.Tensor:
     """Terminate if any robot's EE leaves the allowed cylindrical workspace."""
     ee_cfgs = _get_ee_configs(env, robots)

@@ -4,7 +4,7 @@ from mjlab.envs import ManagerBasedRlEnv
 from multi_robot_rl.assets.robots.base import RobotConfig
 import multi_robot_rl.configs.reach_constants as reach_constants
 import multi_robot_rl.common.quat_helpers as quat_helpers
-from multi_robot_rl.common.mdp import get_ee_positions
+from multi_robot_rl.common.mdp import get_ee_positions, get_ee_centroid_positions
 
 def _init_reach_state(env: ManagerBasedRlEnv) -> None:
     if not hasattr(env, "goal_positions"):
@@ -96,8 +96,19 @@ def goal_reached_fraction(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 # EVENTS & RESETS
 # =========================================================
 
-def reset_goal_state(env: ManagerBasedRlEnv, env_ids, **kwargs) -> None:
-    """Sample new goal positions uniformly in the cylindrical workspace and update mocap markers."""
+def reset_goal_state(
+    env: ManagerBasedRlEnv,
+    env_ids,
+    robots: list[RobotConfig],
+    radius: float = reach_constants.GOAL_WORKSPACE_RADIUS,
+    dz: float = reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0,
+    **kwargs,
+) -> None:
+    """Sample new goal positions in a cylinder centered on the EE centroid and update mocap markers.
+
+    Goals are drawn uniformly within a cylinder of radius `radius` and half-height `dz` centered
+    on the mean end-effector position, clipped to the workspace bounds.
+    """
     if env_ids is None:
         env_ids = torch.arange(env.num_envs, device=env.device)
 
@@ -105,16 +116,25 @@ def reset_goal_state(env: ManagerBasedRlEnv, env_ids, **kwargs) -> None:
     env._final_goal_reached_fraction[env_ids] = env._goal_reached_mask[env_ids].float().mean(dim=1)
     env._goal_reached_mask[env_ids] = False
 
-    # Uniform distribution in a disk: r = R * sqrt(U), theta = 2*pi*U
     num_envs = len(env_ids)
     num_goals = reach_constants.NUM_GOALS
-    r = reach_constants.GOAL_WORKSPACE_RADIUS * torch.sqrt(torch.rand(num_envs, num_goals, device=env.device))
-    theta = 2.0 * torch.pi * torch.rand(num_envs, num_goals, device=env.device)
-    height = reach_constants.GOAL_WORKSPACE_HEIGHT * torch.rand(num_envs, num_goals, device=env.device)
 
-    env.goal_positions[env_ids, :, 0] = r * torch.cos(theta)
-    env.goal_positions[env_ids, :, 1] = r * torch.sin(theta)
-    env.goal_positions[env_ids, :, 2] = height
+    # Uniform distribution in a disk: r = R * sqrt(U), theta = 2*pi*U
+    r = radius * torch.sqrt(torch.rand(num_envs, num_goals, device=env.device))
+    theta = 2.0 * torch.pi * torch.rand(num_envs, num_goals, device=env.device)
+    z_offset = (2.0 * torch.rand(num_envs, num_goals, device=env.device) - 1.0) * dz
+
+    centroids = get_ee_centroid_positions(env, robots, env_ids)  # (num_envs, 3)
+    xy = torch.stack([
+        centroids[:, 0:1] + r * torch.cos(theta),
+        centroids[:, 1:2] + r * torch.sin(theta),
+    ], dim=-1)  # (num_envs, num_goals, 2)
+    xy_norm = torch.norm(xy, dim=-1, keepdim=True).clamp(min=1e-6)
+    xy = xy * (xy_norm.clamp(max=reach_constants.GOAL_WORKSPACE_RADIUS) / xy_norm)
+
+    env.goal_positions[env_ids, :, 0] = xy[:, :, 0]
+    env.goal_positions[env_ids, :, 1] = xy[:, :, 1]
+    env.goal_positions[env_ids, :, 2] = (centroids[:, 2:3] + z_offset).clamp(0.0, reach_constants.GOAL_WORKSPACE_HEIGHT)
 
     for i in range(reach_constants.NUM_GOALS):
         poses = quat_helpers.position_to_pose(

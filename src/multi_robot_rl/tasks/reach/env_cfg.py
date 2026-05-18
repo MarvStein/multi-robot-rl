@@ -108,19 +108,19 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         "all_goals_reached": TerminationTermCfg(func=reach_mdp.all_goals_reached),
     }
 
-    events = {
-        "reset_goals": EventTermCfg(
-            func=reach_mdp.reset_goal_state,
-            mode="reset",
-            params={
-                "robots": robots,
-                "radius": reach_constants.GOAL_WORKSPACE_RADIUS * 0.2, 
-                "dz": reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0 * 0.2,
-            },
-        ),
-    }
+    events = {}
     for robot in robots:
         events.update(robot.reset_terms)
+    # IMPORTANT: reset_goals event must be triggered after robot resets to ensure goals are spawned in valid locations relative to robot positions.
+    events["reset_goals"] = EventTermCfg(
+        func=reach_mdp.reset_goal_state,
+        mode="reset",
+        params={
+            "robots": robots,
+            "radius": reach_constants.GOAL_WORKSPACE_RADIUS * 0.2,
+            "dz": reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0 * 0.2,
+        },
+    )
 
     metrics = {
         "goal_reached_fraction": MetricsTermCfg(

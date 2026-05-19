@@ -99,6 +99,7 @@ def goal_reached_fraction(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 def reset_goal_state(
     env: ManagerBasedRlEnv,
     env_ids,
+    play: bool,
     radius: float = reach_constants.GOAL_WORKSPACE_RADIUS,
     dz: float = reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0,
     **kwargs,
@@ -109,6 +110,7 @@ def reset_goal_state(
     Args:
         env: the environment instance
         env_ids: the indices of the environments to reset
+        play: radius and dz are set to 1.0 when play=True to disable curriculum in evaluation
         radius: float in [0, 1], the radius of the cylinder in which to sample goals (relative to GOAL_WORKSPACE_RADIUS)
         dz: float in [0, 1], the half-height of the cylinder in which to sample goals (relative to GOAL_WORKSPACE_HEIGHT / 2)
     """
@@ -121,6 +123,11 @@ def reset_goal_state(
 
     num_envs = len(env_ids)
     num_goals = reach_constants.NUM_GOALS
+
+    if play:
+        # override radius and dz to disable curriculum in evaluation (sample goals in the full workspace from the start)
+        radius = 1.0
+        dz = 1.0
 
     # Uniform distribution in a disk: r = R * sqrt(U), theta = 2*pi*U
     r = radius * reach_constants.GOAL_WORKSPACE_RADIUS * torch.sqrt(torch.rand(num_envs, num_goals, device=env.device))

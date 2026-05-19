@@ -113,6 +113,7 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
             func=reach_mdp.reset_goal_state,
             mode="reset",
             params={
+                "play": play,
                 "radius": 0.2,
                 "dz": 0.2,
             },

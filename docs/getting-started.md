@@ -59,3 +59,13 @@ To evaluate a trained model run the following:
 ```bash
 uv run play <reach/push/type> --checkpoint-file logs/rsl_rl/<...>.pt
 ```
+
+## Recording Videos
+
+```bash
+uv run record <reach/push/type> --checkpoint-file logs/rsl_rl/<...>.pt --video-length <N>
+```
+where `N` is the number of steps to record. I.e. for 50ms steps, 600 steps corresponds to a 30 second video.
+
+!!! note
+    A recording feature exists in mjlab ([see docs](https://mujocolab.github.io/mjlab/main/source/viewers.html)) but there's a bug which causes the GUI to be launched after recording, so i implemented the separate script `record.py`

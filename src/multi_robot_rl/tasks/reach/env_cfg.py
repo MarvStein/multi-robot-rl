@@ -133,7 +133,7 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
             params={
                 "event_name": "reset_goals",
                 "metric_name": "goal_reached_fraction",
-                "alpha": 0.005,
+                "alpha": 1e-3,
                 "stages": [
                     {"metric_value": 0.0, "params": {"radius": 0.2, "dz": 0.2}},
                     {"metric_value": 0.2, "params": {"radius": 0.4, "dz": 0.4}},

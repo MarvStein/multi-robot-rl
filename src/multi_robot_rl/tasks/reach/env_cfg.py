@@ -108,19 +108,18 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         "all_goals_reached": TerminationTermCfg(func=reach_mdp.all_goals_reached),
     }
 
-    events = {}
+    events = {
+        "reset_goals": EventTermCfg(
+            func=reach_mdp.reset_goal_state,
+            mode="reset",
+            params={
+                "radius": 0.2,
+                "dz": 0.2,
+            },
+        ),
+    }
     for robot in robots:
         events.update(robot.reset_terms)
-    # IMPORTANT: reset_goals event must be triggered after robot resets to ensure goals are spawned in valid locations relative to robot positions.
-    events["reset_goals"] = EventTermCfg(
-        func=reach_mdp.reset_goal_state,
-        mode="reset",
-        params={
-            "robots": robots,
-            "radius": reach_constants.GOAL_WORKSPACE_RADIUS * 0.2,
-            "dz": reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0 * 0.2,
-        },
-    )
 
     metrics = {
         "goal_reached_fraction": MetricsTermCfg(
@@ -134,13 +133,13 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
             params={
                 "event_name": "reset_goals",
                 "metric_name": "goal_reached_fraction",
-                "alpha": 0.01,
+                "alpha": 0.005,
                 "stages": [
-                    {"metric_value": 0.0, "params": {"radius": reach_constants.GOAL_WORKSPACE_RADIUS * 0.2, "dz": reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0 * 0.2}},
-                    {"metric_value": 0.2, "params": {"radius": reach_constants.GOAL_WORKSPACE_RADIUS * 0.4, "dz": reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0 * 0.4}},
-                    {"metric_value": 0.4, "params": {"radius": reach_constants.GOAL_WORKSPACE_RADIUS * 0.6, "dz": reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0 * 0.6}},
-                    {"metric_value": 0.6, "params": {"radius": reach_constants.GOAL_WORKSPACE_RADIUS * 0.8, "dz": reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0 * 0.8}},
-                    {"metric_value": 0.8, "params": {"radius": reach_constants.GOAL_WORKSPACE_RADIUS * 1.0, "dz": reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0 * 1.0}},
+                    {"metric_value": 0.0, "params": {"radius": 0.2, "dz": 0.2}},
+                    {"metric_value": 0.2, "params": {"radius": 0.4, "dz": 0.4}},
+                    {"metric_value": 0.4, "params": {"radius": 0.6, "dz": 0.6}},
+                    {"metric_value": 0.6, "params": {"radius": 0.8, "dz": 0.8}},
+                    {"metric_value": 0.8, "params": {"radius": 1.0, "dz": 1.0}},
                 ],
             },
         ),

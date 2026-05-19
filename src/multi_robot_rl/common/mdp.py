@@ -24,14 +24,6 @@ def get_ee_positions(env: ManagerBasedRlEnv, robots: list[RobotConfig]) -> torch
     )
 
 
-def get_ee_centroid_positions(env: ManagerBasedRlEnv, robots: list[RobotConfig], env_ids: torch.Tensor | None = None) -> torch.Tensor:
-    """Return mean EE position across all robots per env: (len(env_ids), 3) or (num_envs, 3)."""
-    ee_positions = get_ee_positions(env, robots)  # (num_envs, num_robots, 3)
-    centroids = ee_positions.mean(dim=1)          # (num_envs, 3)
-    if env_ids is not None:
-        return centroids[env_ids]
-    return centroids
-
 
 def ee_pos_obs(env: ManagerBasedRlEnv, robot_name: str, ee_site: str) -> torch.Tensor:
     """Obs-term: world-frame EE position for a single robot: (num_envs, 3)."""

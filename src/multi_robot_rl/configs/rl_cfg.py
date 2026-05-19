@@ -22,7 +22,7 @@ def ppo_runner_cfg_default() -> RslRlOnPolicyRunnerCfg:
             },
         ),
         critic=RslRlModelCfg(
-            hidden_dims=(64, 64),
+            hidden_dims=(256, 128),
             activation="elu",
         ),
         algorithm=RslRlPpoAlgorithmCfg(

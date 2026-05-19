@@ -96,8 +96,24 @@ def goal_reached_fraction(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 # EVENTS & RESETS
 # =========================================================
 
-def reset_goal_state(env: ManagerBasedRlEnv, env_ids, **kwargs) -> None:
-    """Sample new goal positions uniformly in the cylindrical workspace and update mocap markers."""
+def reset_goal_state(
+    env: ManagerBasedRlEnv,
+    env_ids,
+    play: bool,
+    radius: float = reach_constants.GOAL_WORKSPACE_RADIUS,
+    dz: float = reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0,
+    **kwargs,
+) -> None:
+    """
+    Sample new goal positions in a cylinder centered on the workspace center and update mocap markers.
+    
+    Args:
+        env: the environment instance
+        env_ids: the indices of the environments to reset
+        play: radius and dz are set to 1.0 when play=True to disable curriculum in evaluation
+        radius: float in [0, 1], the radius of the cylinder in which to sample goals (relative to GOAL_WORKSPACE_RADIUS)
+        dz: float in [0, 1], the half-height of the cylinder in which to sample goals (relative to GOAL_WORKSPACE_HEIGHT / 2)
+    """
     if env_ids is None:
         env_ids = torch.arange(env.num_envs, device=env.device)
 
@@ -105,16 +121,23 @@ def reset_goal_state(env: ManagerBasedRlEnv, env_ids, **kwargs) -> None:
     env._final_goal_reached_fraction[env_ids] = env._goal_reached_mask[env_ids].float().mean(dim=1)
     env._goal_reached_mask[env_ids] = False
 
-    # Uniform distribution in a disk: r = R * sqrt(U), theta = 2*pi*U
     num_envs = len(env_ids)
     num_goals = reach_constants.NUM_GOALS
-    r = reach_constants.GOAL_WORKSPACE_RADIUS * torch.sqrt(torch.rand(num_envs, num_goals, device=env.device))
-    theta = 2.0 * torch.pi * torch.rand(num_envs, num_goals, device=env.device)
-    height = reach_constants.GOAL_WORKSPACE_HEIGHT * torch.rand(num_envs, num_goals, device=env.device)
 
+    if play:
+        # override radius and dz to disable curriculum in evaluation (sample goals in the full workspace from the start)
+        radius = 1.0
+        dz = 1.0
+
+    # Uniform distribution in a disk: r = R * sqrt(U), theta = 2*pi*U
+    r = radius * reach_constants.GOAL_WORKSPACE_RADIUS * torch.sqrt(torch.rand(num_envs, num_goals, device=env.device))
+    theta = 2.0 * torch.pi * torch.rand(num_envs, num_goals, device=env.device)
+    z_offset = (2.0 * torch.rand(num_envs, num_goals, device=env.device) - 1.0) * dz * reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0
+
+    center_z = reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0
     env.goal_positions[env_ids, :, 0] = r * torch.cos(theta)
     env.goal_positions[env_ids, :, 1] = r * torch.sin(theta)
-    env.goal_positions[env_ids, :, 2] = height
+    env.goal_positions[env_ids, :, 2] = center_z + z_offset
 
     for i in range(reach_constants.NUM_GOALS):
         poses = quat_helpers.position_to_pose(

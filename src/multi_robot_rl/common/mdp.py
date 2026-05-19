@@ -24,6 +24,7 @@ def get_ee_positions(env: ManagerBasedRlEnv, robots: list[RobotConfig]) -> torch
     )
 
 
+
 def ee_pos_obs(env: ManagerBasedRlEnv, robot_name: str, ee_site: str) -> torch.Tensor:
     """Obs-term: world-frame EE position for a single robot: (num_envs, 3)."""
     cfg = _get_ee_config(env, robot_name, ee_site)

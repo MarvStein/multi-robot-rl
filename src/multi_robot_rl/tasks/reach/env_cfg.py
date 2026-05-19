@@ -6,6 +6,7 @@ from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
 from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.metrics_manager import MetricsTermCfg
+from mjlab.managers.curriculum_manager import CurriculumTermCfg
 from mjlab.terrains import TerrainEntityCfg
 from mjlab.scene import SceneCfg
 from mjlab.sim import SimulationCfg, MujocoCfg
@@ -20,6 +21,7 @@ from multi_robot_rl.assets.robots import masspoint, ur10
 # custom MDP imports and constants
 from multi_robot_rl.tasks.reach import mdp as reach_mdp
 from multi_robot_rl.common import mdp as common_mdp
+from multi_robot_rl.common import curriculum as common_curriculum
 import multi_robot_rl.configs.reach_constants as reach_constants
 
 
@@ -110,6 +112,11 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         "reset_goals": EventTermCfg(
             func=reach_mdp.reset_goal_state,
             mode="reset",
+            params={
+                "play": play,
+                "radius": 0.2,
+                "dz": 0.2,
+            },
         ),
     }
     for robot in robots:
@@ -118,6 +125,24 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
     metrics = {
         "goal_reached_fraction": MetricsTermCfg(
             func=reach_mdp.goal_reached_fraction,
+        ),
+    }
+
+    curriculum = {
+        "goal_spawn_curriculum": CurriculumTermCfg(
+            func=common_curriculum.metric_event_curriculum,
+            params={
+                "event_name": "reset_goals",
+                "metric_name": "goal_reached_fraction",
+                "alpha": 1e-3,
+                "stages": [
+                    {"metric_value": 0.0, "params": {"radius": 0.2, "dz": 0.2}},
+                    {"metric_value": 0.2, "params": {"radius": 0.4, "dz": 0.4}},
+                    {"metric_value": 0.4, "params": {"radius": 0.6, "dz": 0.6}},
+                    {"metric_value": 0.6, "params": {"radius": 0.8, "dz": 0.8}},
+                    {"metric_value": 0.8, "params": {"radius": 1.0, "dz": 1.0}},
+                ],
+            },
         ),
     }
 
@@ -137,6 +162,7 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         rewards=rewards,
         terminations=terminations,
         metrics=metrics,
+        curriculum=curriculum,
         sim=SimulationCfg(
             mujoco=MujocoCfg(timestep=0.01),
             njmax=300,

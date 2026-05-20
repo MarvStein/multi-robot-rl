@@ -15,7 +15,7 @@ def ppo_runner_cfg_default() -> RslRlOnPolicyRunnerCfg:
         save_interval=50,
         experiment_name="<CHANGE_ME>",
         actor=RslRlModelCfg(
-            hidden_dims=(64, 64),
+            hidden_dims=(256, 128),
             activation="elu",
             distribution_cfg={
                 "class_name": "GaussianDistribution",

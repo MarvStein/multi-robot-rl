@@ -24,6 +24,7 @@ REACH_GOAL_RGBA = (0.2, 0.8, 0.8, 0.6)
 # centered at the origin with the following dimensions:
 GOAL_WORKSPACE_RADIUS = 0.3
 GOAL_WORKSPACE_HEIGHT = 0.8
+GOAL_WORKSPACE_MIN_HEIGHT = 0.1
 
 # =========================================================
 # MASSPOINT

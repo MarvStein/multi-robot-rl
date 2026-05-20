@@ -112,7 +112,7 @@ def reset_goal_state(
         env_ids: the indices of the environments to reset
         play: radius and dz are set to 1.0 when play=True to disable curriculum in evaluation
         radius: float in [0, 1], the radius of the cylinder in which to sample goals (relative to GOAL_WORKSPACE_RADIUS)
-        dz: float in [0, 1], the half-height of the cylinder in which to sample goals (relative to GOAL_WORKSPACE_HEIGHT / 2)
+        dz: float in [0, 1], the half-height of the cylinder in which to sample goals (relative to (GOAL_WORKSPACE_HEIGHT - GOAL_WORKSPACE_MIN_HEIGHT) / 2)
     """
     if env_ids is None:
         env_ids = torch.arange(env.num_envs, device=env.device)
@@ -132,9 +132,10 @@ def reset_goal_state(
     # Uniform distribution in a disk: r = R * sqrt(U), theta = 2*pi*U
     r = radius * reach_constants.GOAL_WORKSPACE_RADIUS * torch.sqrt(torch.rand(num_envs, num_goals, device=env.device))
     theta = 2.0 * torch.pi * torch.rand(num_envs, num_goals, device=env.device)
-    z_offset = (2.0 * torch.rand(num_envs, num_goals, device=env.device) - 1.0) * dz * reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0
+    z_half = (reach_constants.GOAL_WORKSPACE_HEIGHT - reach_constants.GOAL_WORKSPACE_MIN_HEIGHT) / 2.0
+    z_offset = (2.0 * torch.rand(num_envs, num_goals, device=env.device) - 1.0) * dz * z_half
 
-    center_z = reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0
+    center_z = reach_constants.GOAL_WORKSPACE_MIN_HEIGHT + z_half
     env.goal_positions[env_ids, :, 0] = r * torch.cos(theta)
     env.goal_positions[env_ids, :, 1] = r * torch.sin(theta)
     env.goal_positions[env_ids, :, 2] = center_z + z_offset

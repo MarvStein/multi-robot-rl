@@ -10,7 +10,7 @@ from benchmark_base import AlgorithmSpec, BenchmarkRunner, REPO_ROOT
 # Config
 # ---------------------------------------------------------------------------
 
-TIMEOUT_S = 60 #3 * 60 * 60  # per run
+TIMEOUT_S = 3 * 60 * 60  # per run
 
 ALGORITHMS = [
     AlgorithmSpec("ppo",      "reach"),
@@ -19,9 +19,8 @@ ALGORITHMS = [
 
 # Keys must match fields in reach_constants.py.
 VARIANTS = [
-    {"NUM_MASSPOINTS": 1, "NUM_UR10S": 0, "NUM_GOALS": 1},
     {"NUM_MASSPOINTS": 1, "NUM_UR10S": 0, "NUM_GOALS": 5},
-    # {"NUM_MASSPOINTS": 2, "NUM_UR10S": 0, "NUM_GOALS": 1},
+    {"NUM_MASSPOINTS": 0, "NUM_UR10S": 1, "NUM_GOALS": 5},
 ]
 
 # ---------------------------------------------------------------------------

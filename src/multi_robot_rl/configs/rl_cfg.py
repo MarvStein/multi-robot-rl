@@ -12,7 +12,7 @@ def ppo_runner_cfg_default() -> RslRlOnPolicyRunnerCfg:
     return RslRlOnPolicyRunnerCfg(
         num_steps_per_env=24,
         max_iterations=200,
-        save_interval=50,
+        save_interval=100,
         experiment_name="<CHANGE_ME>",
         actor=RslRlModelCfg(
             hidden_dims=(256, 128),
@@ -47,7 +47,7 @@ def ppo_runner_cfg_reach_task() -> RslRlOnPolicyRunnerCfg:
     """Runner configuration for PPO in the reach task."""
     cfg = ppo_runner_cfg_default()
     cfg.experiment_name = "reach_task"
-    cfg.max_iterations = 1 + 100_000
+    cfg.max_iterations = 1 + 25_000 # total env steps = max_iterations * num_steps_per_env * num_envs = 25_000 * 24 * 2048
     return cfg
 
 def ppo_runner_cfg_type_task() -> RslRlOnPolicyRunnerCfg:
@@ -68,8 +68,8 @@ def fast_sac_runner_cfg_reach_task() -> RslRlFastSacRunnerCfg:
     """Runner configuration for FastSAC in the reach task."""
     return RslRlFastSacRunnerCfg(
         experiment_name="reach_task_fast_sac",
-        max_iterations=500_000,
-        save_interval=1200,
+        max_iterations=1+600_000, # 24 times larger than PPO to get equal total env steps
+        save_interval=2400,
         algorithm=RslRlFastSacAlgorithmCfg(
             gamma=0.99,
             batch_size=4096,

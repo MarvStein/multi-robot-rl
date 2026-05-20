@@ -146,6 +146,39 @@ class BenchmarkRunner(ABC):
             return set()
         return {d.name for d in self.logs_dir.iterdir() if d.is_dir()}
 
+    def _latest_checkpoint(self, run_dir: Path) -> Path | None:
+        """Return the highest-numbered model_*.pt in run_dir."""
+        pts = list(run_dir.glob("model_*.pt"))
+        if not pts:
+            return None
+        def _step(p: Path) -> int:
+            try:
+                return int(p.stem.split("_", 1)[1])
+            except (IndexError, ValueError):
+                return -1
+        return max(pts, key=_step)
+
+    def _record_videos(self, algo: AlgorithmSpec, label: str, before: set[str]) -> None:
+        if not self.logs_dir.exists():
+            return
+        new_dirs = [
+            d for d in self.logs_dir.iterdir()
+            if d.is_dir() and d.name not in before and label in d.name
+        ]
+        for run_dir in new_dirs:
+            ckpt = self._latest_checkpoint(run_dir)
+            if ckpt is None:
+                print(f"[benchmark] No checkpoint in {run_dir.name}, skipping video.")
+                continue
+            cmd = ["uv", "run", "record", algo.task_id, "--checkpoint-file", str(ckpt)]
+            print(f"[benchmark] Recording video: {ckpt.name} → {run_dir.name}/videos/")
+            try:
+                subprocess.run(cmd, cwd=REPO_ROOT, timeout=300)
+            except subprocess.TimeoutExpired:
+                print(f"[benchmark] Video recording timed out for {run_dir.name}.")
+            except Exception as exc:
+                print(f"[benchmark] Video recording failed for {run_dir.name}: {exc}")
+
     def _stage_logs(self, label: str, staging: Path, before: set[str]) -> None:
         if not self.logs_dir.exists():
             print(f"[benchmark] No logs found for {label}.")
@@ -226,6 +259,7 @@ class BenchmarkRunner(ABC):
             _current_proc = None
             self._restore_constants(original)
 
+        self._record_videos(algo, label, before)
         self._stage_logs(label, staging, before)
 
         return RunResult(

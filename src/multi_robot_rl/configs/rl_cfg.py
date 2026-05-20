@@ -67,7 +67,7 @@ def ppo_runner_cfg_push_task() -> RslRlOnPolicyRunnerCfg:
 def fast_sac_runner_cfg_reach_task() -> RslRlFastSacRunnerCfg:
     """Runner configuration for FastSAC in the reach task."""
     return RslRlFastSacRunnerCfg(
-        experiment_name="reach_task_fast_sac",
+        experiment_name="reach_task",
         max_iterations=1+600_000, # 24 times larger than PPO to get equal total env steps
         save_interval=2400,
         algorithm=RslRlFastSacAlgorithmCfg(

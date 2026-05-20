@@ -69,7 +69,7 @@ def fast_sac_runner_cfg_reach_task() -> RslRlFastSacRunnerCfg:
     return RslRlFastSacRunnerCfg(
         experiment_name="reach_task_fast_sac",
         max_iterations=500_000,
-        save_interval=5000,
+        save_interval=1200,
         algorithm=RslRlFastSacAlgorithmCfg(
             gamma=0.99,
             batch_size=4096,

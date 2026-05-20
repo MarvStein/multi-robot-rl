@@ -5,14 +5,14 @@ from math import pi, radians
 # ROBOT COUNTS
 # =========================================================
 
-NUM_MASSPOINTS = 0
-NUM_UR10S = 1
+NUM_MASSPOINTS = 1
+NUM_UR10S = 0
 
 # =========================================================
 # GOALS
 # =========================================================
 
-NUM_GOALS = 5
+NUM_GOALS = 1
 MARKER_SIZE = (0.05, 0.05, 0.002)
 REACH_GOAL_RGBA = (0.2, 0.8, 0.8, 0.6)
 

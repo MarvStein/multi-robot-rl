@@ -1,5 +1,7 @@
 """RL runner configurations."""
 from mjlab.rl import (
+  RslRlFastSacAlgorithmCfg,
+  RslRlFastSacRunnerCfg,
   RslRlModelCfg,
   RslRlOnPolicyRunnerCfg,
   RslRlPpoAlgorithmCfg,
@@ -61,3 +63,19 @@ def ppo_runner_cfg_push_task() -> RslRlOnPolicyRunnerCfg:
     cfg.experiment_name = "push_task"
     cfg.max_iterations = 3901
     return cfg
+
+def fast_sac_runner_cfg_reach_task() -> RslRlFastSacRunnerCfg:
+    """Runner configuration for FastSAC in the reach task."""
+    return RslRlFastSacRunnerCfg(
+        experiment_name="reach_task_fast_sac",
+        max_iterations=500_000,
+        save_interval=1200,
+        algorithm=RslRlFastSacAlgorithmCfg(
+            gamma=0.99,
+            batch_size=4096,
+            buffer_size=2048,
+            num_updates=4,
+            compile=False,
+            amp=False,
+        ),
+    )

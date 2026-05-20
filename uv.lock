@@ -1443,7 +1443,7 @@ wheels = [
 [[package]]
 name = "mjlab"
 version = "1.3.0"
-source = { git = "https://github.com/MarvStein/mjlab.git?branch=feat%2Ffast-sac#df14b39fc8471da1479f7e6e8ed45beab3fc717b" }
+source = { git = "https://github.com/MarvStein/mjlab.git?branch=feat%2Ffast-sac#b5cccd131af7339ab79c3ce6f480330fe8915949" }
 dependencies = [
     { name = "imageio-ffmpeg" },
     { name = "mediapy" },

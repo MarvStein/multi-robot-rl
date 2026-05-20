@@ -57,7 +57,7 @@ def goal_reached_reward(
     play: bool = False,
     **kwargs,
 ) -> torch.Tensor:
-    """Sparse one-time reward when any robot newly reaches a goal."""
+    """Sparse one-time reward of 1/NUM_GOALS when any robot newly reaches a goal."""
     ee_positions = get_ee_positions(env, robots)  # (num_envs, num_robots, 3)
     distances = torch.cdist(ee_positions, env.goal_positions)  # (num_envs, num_robots, NUM_GOALS)
     any_robot_reached = (distances < reach_constants.GOAL_REACH_THRESHOLD).any(dim=1)  # (num_envs, NUM_GOALS)
@@ -78,7 +78,7 @@ def goal_reached_reward(
                 )
                 env.scene[f"goal_{i}"].write_mocap_pose_to_sim(mocap_pose=hidden_poses, env_ids=env_ids)
 
-    return newly_reached.float().sum(dim=1)  # (num_envs,)
+    return newly_reached.float().sum(dim=1) / reach_constants.NUM_GOALS  # (num_envs,)
 
 # =========================================================
 # METRICS

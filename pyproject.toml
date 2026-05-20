@@ -20,7 +20,7 @@ requires = ["uv_build>=0.10.11,<0.11.0"]
 build-backend = "uv_build"
 
 [tool.uv.sources]
-mjlab = { git = "https://github.com/mujocolab/mjlab.git" }
+mjlab = { git = "https://github.com/MarvStein/mjlab.git", branch = "feat/fast-sac" }
 
 [dependency-groups]
 dev = [

@@ -170,7 +170,11 @@ class BenchmarkRunner(ABC):
             if ckpt is None:
                 print(f"[benchmark] No checkpoint in {run_dir.name}, skipping video.")
                 continue
-            cmd = ["uv", "run", "record", algo.task_id, "--checkpoint-file", str(ckpt)]
+            cmd = [
+                "uv", "run", "record", algo.task_id,
+                "--checkpoint-file", str(ckpt),
+                "--video-length", "600",
+            ]
             print(f"[benchmark] Recording video: {ckpt.name} → {run_dir.name}/videos/")
             try:
                 subprocess.run(cmd, cwd=REPO_ROOT, timeout=300)
@@ -257,9 +261,9 @@ class BenchmarkRunner(ABC):
             print(f"\n[benchmark] Unexpected error for {label}: {exc}")
         finally:
             _current_proc = None
+            self._record_videos(algo, label, before)
             self._restore_constants(original)
 
-        self._record_videos(algo, label, before)
         self._stage_logs(label, staging, before)
 
         return RunResult(

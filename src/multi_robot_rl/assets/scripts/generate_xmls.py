@@ -80,6 +80,8 @@ def _generate_masspoint_xml(suffix: str,
                             x_range: tuple[float, float],
                             y_range: tuple[float, float],
                             z_range: tuple[float, float],
+                            mass: float,
+                            diaginertia: float,
                             spring_stiffness: float = 0.5,
                             gravcomp: bool = False):
     """
@@ -95,6 +97,8 @@ def _generate_masspoint_xml(suffix: str,
         x_range: Tuple specifying the (min, max) range for the x position
         y_range: Tuple specifying the (min, max) range for the y position
         z_range: Tuple specifying the (min, max) range for the z position
+        mass: Mass of the masspoint body in kg
+        diaginertia: Diagonal inertia value (same for all three axes) in kg*m^2
         spring_stiffness: Stiffness of the z-spring (0.0 = no spring)
         gravcomp: Whether to enable gravity compensation on the body
     """
@@ -106,6 +110,8 @@ def _generate_masspoint_xml(suffix: str,
         "MP_X_RANGE": x_range,
         "MP_Y_RANGE": y_range,
         "MP_Z_RANGE": z_range,
+        "MP_MASS": mass,
+        "MP_DIAGINERTIA": diaginertia,
         "SPRING_STIFFNESS": spring_stiffness if spring_stiffness > 0 else None,
         "GRAVCOMP": gravcomp,
     }
@@ -130,6 +136,8 @@ def _generate_everything_for_type_task():
         type_constants.MP_X_RANGE,
         type_constants.MP_Y_RANGE,
         type_constants.MP_Z_RANGE,
+        mass=type_constants.MP_MASS,
+        diaginertia=type_constants.MP_DIAGINERTIA,
         spring_stiffness=type_constants.MP_SPRING_STIFFNESS,
         gravcomp=False,
     )
@@ -154,6 +162,8 @@ def _generate_everything_for_reach_task():
         x_range=reach_constants.MP_X_RANGE,
         y_range=reach_constants.MP_Y_RANGE,
         z_range=reach_constants.MP_Z_RANGE,
+        mass=reach_constants.MP_MASS,
+        diaginertia=reach_constants.MP_DIAGINERTIA,
         spring_stiffness=reach_constants.MP_SPRING_STIFFNESS,
         gravcomp=reach_constants.MP_GRAVCOMP,
     )
@@ -209,6 +219,8 @@ def _generate_everything_for_push_task():
         x_range=push_constants.MP_X_RANGE,
         y_range=push_constants.MP_Y_RANGE,
         z_range=push_constants.MP_Z_RANGE,
+        mass=push_constants.MP_MASS,
+        diaginertia=push_constants.MP_DIAGINERTIA,
         spring_stiffness=push_constants.MP_SPRING_STIFFNESS,
         gravcomp=push_constants.MP_GRAVCOMP,
     )

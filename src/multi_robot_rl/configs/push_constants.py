@@ -5,7 +5,7 @@ from math import pi, radians, sqrt
 # ROBOT COUNTS
 # =========================================================
 
-NUM_MASSPOINTS = 1
+NUM_MASSPOINTS = 2
 NUM_UR10S = 0
 NUM_CUBOIDS = 1  # also the number of target poses
 
@@ -57,6 +57,8 @@ YAW_THRESHOLD = radians(20)      # success threshold for difference in yaw betwe
 # =========================================================
 
 MP_RADIUS = 0.03
+MP_MASS = 0.1
+MP_DIAGINERTIA = 0.01
 
 MP_SPAWN_RADIUS = CUBOID_SPAWN_RADIUS
 MP_SPAWN_HEIGHT = MP_RADIUS # masspoint spawns exactly on that height

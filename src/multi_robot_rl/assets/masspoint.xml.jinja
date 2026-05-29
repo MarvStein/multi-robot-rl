@@ -2,7 +2,7 @@
   <compiler angle="radian"/>
   <worldbody>
     <body name="masspoint" pos="0 0 0"{% if GRAVCOMP %} gravcomp="1"{% endif %}>
-        <inertial pos="0.0 0.0 0.0" mass="0.01" diaginertia="0.001 0.001 0.001"/>
+        <inertial pos="0.0 0.0 0.0" mass="{{ MP_MASS }}" diaginertia="{{ MP_DIAGINERTIA }} {{ MP_DIAGINERTIA }} {{ MP_DIAGINERTIA }}"/>
         <joint name="mp_x" pos="0.0 0.0 0.0" axis="1 0 0" type="slide" limited="true" range="{{ MP_X_RANGE[0] }} {{ MP_X_RANGE[1] }}" damping="0.1"/>
         <joint name="mp_y" pos="0.0 0.0 0.0" axis="0 1 0" type="slide" limited="true" range="{{ MP_Y_RANGE[0] }} {{ MP_Y_RANGE[1] }}" damping="0.1"/>
         <joint name="mp_z" pos="0.0 0.0 0.0" axis="0 0 1" type="slide" {% if SPRING_STIFFNESS %}springref="{{ MP_Z_RANGE[1] }}" stiffness="{{ SPRING_STIFFNESS }}"{% else %}stiffness="0.0"{% endif %} limited="true" range="{{ MP_Z_RANGE[0] }} {{ MP_Z_RANGE[1] }}" damping="0.1"/>

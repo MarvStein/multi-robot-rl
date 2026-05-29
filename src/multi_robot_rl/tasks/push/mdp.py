@@ -144,61 +144,48 @@ def reset_cuboids_and_targets(
     env: ManagerBasedRlEnv,
     env_ids,
     play: bool = False,
-    cuboid_radius_fraction: float = 1.0,
-    target_radius_fraction: float = 1.0,
+    cuboid_distance_fraction: float = 1.0,
     **kwargs,
 ) -> None:
     """
     Reset cuboid positions/yaw and target poses for the given env_ids.
 
+    Targets are always sampled uniformly over the full workspace (TARGET_SPAWN_RADIUS).
+    Each cuboid i is then sampled within a disk of radius
+    ``cuboid_distance_fraction * CUBOID_MAX_PUSH_DISTANCE`` centred on its paired target i.
+    This means early in training (small fraction) the agent only needs to nudge each
+    cuboid a short distance; as the fraction grows the agent must push cuboids across the
+    full workspace.  The pairing is only used for initialisation — during the episode any
+    cuboid can satisfy any target.
+
     Args:
         env: the environment instance
         env_ids: the indices of the environments to reset
-        play: when True, overrides fractions to 1.0 to disable curriculum in evaluation
-        cuboid_radius_fraction: float in [0, 1], fraction of CUBOID_SPAWN_RADIUS used for sampling
-        target_radius_fraction: float in [0, 1], fraction of TARGET_SPAWN_RADIUS used for sampling
+        play: when True, overrides cuboid_distance_fraction to 1.0 to disable curriculum
+        cuboid_distance_fraction: float in [0, 1], scales the maximum initial distance
+            between each cuboid and its paired target
     """
     if env_ids is None:
         env_ids = torch.arange(env.num_envs, device=env.device)
 
     if play:
-        cuboid_radius_fraction = 1.0
-        target_radius_fraction = 1.0
+        cuboid_distance_fraction = 1.0
 
-    cuboid_spawn_radius = cuboid_radius_fraction * push_constants.CUBOID_SPAWN_RADIUS
-    target_spawn_radius = target_radius_fraction * push_constants.TARGET_SPAWN_RADIUS
+    max_push_distance = cuboid_distance_fraction * push_constants.CUBOID_MAX_PUSH_DISTANCE
 
     _init_push_state(env)
     env._final_target_reached_fraction[env_ids] = env._target_satisfied_mask[env_ids].float().mean(dim=1)
     env._target_satisfied_mask[env_ids] = False
     num = len(env_ids)
 
-    # --- Reset cuboid joint states ---
-    cfgs = _get_cuboid_joint_cfgs(env)
-
-    r_c     = cuboid_spawn_radius * torch.sqrt(torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device))
-    theta_c = 2.0 * torch.pi * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
-    yaw_low, yaw_high = push_constants.CUBOID_YAW_SPAWN_RANGE
-    yaw_c   = yaw_low + (yaw_high - yaw_low) * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
-    x_c     = r_c * torch.cos(theta_c)
-    y_c     = r_c * torch.sin(theta_c)
-
-    for i, cfg in enumerate(cfgs):
-        joint_pos = torch.stack([x_c[:, i], y_c[:, i], yaw_c[:, i]], dim=-1)
-        joint_vel = torch.zeros_like(joint_pos)
-        joint_ids = cfg.joint_ids
-        if isinstance(joint_ids, list):
-            joint_ids = torch.tensor(joint_ids, device=env.device)
-        env.scene[cfg.name].write_joint_state_to_sim(joint_pos, joint_vel, env_ids=env_ids, joint_ids=joint_ids)
-
-    # --- Sample new target poses ---
-    r_t     = target_spawn_radius * torch.sqrt(torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device))
-    theta_t = 2.0 * torch.pi * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
+    # --- Sample target poses uniformly in the full workspace ---
+    r_t      = push_constants.TARGET_SPAWN_RADIUS * torch.sqrt(torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device))
+    theta_t  = 2.0 * torch.pi * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
     tyaw_low, tyaw_high = push_constants.TARGET_YAW_RANGE
-    tyaw    = tyaw_low + (tyaw_high - tyaw_low) * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
-    tx      = r_t * torch.cos(theta_t)
-    ty      = r_t * torch.sin(theta_t)
-    tz      = 0
+    tyaw     = tyaw_low + (tyaw_high - tyaw_low) * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
+    tx       = r_t * torch.cos(theta_t)
+    ty       = r_t * torch.sin(theta_t)
+    tz       = 0
 
     env.target_poses[env_ids, :, 0] = tx
     env.target_poses[env_ids, :, 1] = ty
@@ -214,3 +201,21 @@ def reset_cuboids_and_targets(
         poses[:, 3] = torch.cos(half_yaw)   # qw
         poses[:, 6] = torch.sin(half_yaw)   # qz
         env.scene[f"push_target_{t}"].write_mocap_pose_to_sim(mocap_pose=poses, env_ids=env_ids)
+
+    # --- Sample cuboids within max_push_distance of their paired target ---
+    cfgs = _get_cuboid_joint_cfgs(env)
+
+    r_c     = max_push_distance * torch.sqrt(torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device))
+    theta_c = 2.0 * torch.pi * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
+    yaw_low, yaw_high = push_constants.CUBOID_YAW_SPAWN_RANGE
+    yaw_c   = yaw_low + (yaw_high - yaw_low) * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
+    x_c     = tx + r_c * torch.cos(theta_c)
+    y_c     = ty + r_c * torch.sin(theta_c)
+
+    for i, cfg in enumerate(cfgs):
+        joint_pos = torch.stack([x_c[:, i], y_c[:, i], yaw_c[:, i]], dim=-1)
+        joint_vel = torch.zeros_like(joint_pos)
+        joint_ids = cfg.joint_ids
+        if isinstance(joint_ids, list):
+            joint_ids = torch.tensor(joint_ids, device=env.device)
+        env.scene[cfg.name].write_joint_state_to_sim(joint_pos, joint_vel, env_ids=env_ids, joint_ids=joint_ids)

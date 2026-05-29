@@ -119,8 +119,7 @@ def make_push_env(play: bool = False) -> ManagerBasedRlEnvCfg:
             mode="reset",
             params={
                 "play": play,
-                "cuboid_radius_fraction": 0.2,
-                "target_radius_fraction": 0.2,
+                "cuboid_distance_fraction": 0.2,
             },
         ),
     }
@@ -141,11 +140,11 @@ def make_push_env(play: bool = False) -> ManagerBasedRlEnvCfg:
                 "metric_name": "targets_reached_fraction",
                 "alpha": 1e-3,
                 "stages": [
-                    {"metric_value": 0.0, "params": {"cuboid_radius_fraction": 0.2, "target_radius_fraction": 0.2}},
-                    {"metric_value": 0.2, "params": {"cuboid_radius_fraction": 0.4, "target_radius_fraction": 0.4}},
-                    {"metric_value": 0.4, "params": {"cuboid_radius_fraction": 0.6, "target_radius_fraction": 0.6}},
-                    {"metric_value": 0.6, "params": {"cuboid_radius_fraction": 0.8, "target_radius_fraction": 0.8}},
-                    {"metric_value": 0.8, "params": {"cuboid_radius_fraction": 1.0, "target_radius_fraction": 1.0}},
+                    {"metric_value": 0.0, "params": {"cuboid_distance_fraction": 0.2}},
+                    {"metric_value": 0.2, "params": {"cuboid_distance_fraction": 0.4}},
+                    {"metric_value": 0.4, "params": {"cuboid_distance_fraction": 0.6}},
+                    {"metric_value": 0.6, "params": {"cuboid_distance_fraction": 0.8}},
+                    {"metric_value": 0.8, "params": {"cuboid_distance_fraction": 1.0}},
                 ],
             },
         ),

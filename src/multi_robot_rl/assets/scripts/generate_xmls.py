@@ -82,6 +82,7 @@ def _generate_masspoint_xml(suffix: str,
                             z_range: tuple[float, float],
                             mass: float,
                             diaginertia: float,
+                            kv: float,
                             spring_stiffness: float = 0.5,
                             gravcomp: bool = False):
     """
@@ -99,6 +100,7 @@ def _generate_masspoint_xml(suffix: str,
         z_range: Tuple specifying the (min, max) range for the z position
         mass: Mass of the masspoint body in kg
         diaginertia: Diagonal inertia value (same for all three axes) in kg*m^2
+        kv: Velocity servo gain; set high enough that kv > mu*mass*g to overcome ground friction
         spring_stiffness: Stiffness of the z-spring (0.0 = no spring)
         gravcomp: Whether to enable gravity compensation on the body
     """
@@ -112,6 +114,7 @@ def _generate_masspoint_xml(suffix: str,
         "MP_Z_RANGE": z_range,
         "MP_MASS": mass,
         "MP_DIAGINERTIA": diaginertia,
+        "MP_KV": kv,
         "SPRING_STIFFNESS": spring_stiffness if spring_stiffness > 0 else None,
         "GRAVCOMP": gravcomp,
     }
@@ -138,6 +141,7 @@ def _generate_everything_for_type_task():
         type_constants.MP_Z_RANGE,
         mass=type_constants.MP_MASS,
         diaginertia=type_constants.MP_DIAGINERTIA,
+        kv=type_constants.MP_KV,
         spring_stiffness=type_constants.MP_SPRING_STIFFNESS,
         gravcomp=False,
     )
@@ -164,6 +168,7 @@ def _generate_everything_for_reach_task():
         z_range=reach_constants.MP_Z_RANGE,
         mass=reach_constants.MP_MASS,
         diaginertia=reach_constants.MP_DIAGINERTIA,
+        kv=reach_constants.MP_KV,
         spring_stiffness=reach_constants.MP_SPRING_STIFFNESS,
         gravcomp=reach_constants.MP_GRAVCOMP,
     )
@@ -221,6 +226,7 @@ def _generate_everything_for_push_task():
         z_range=push_constants.MP_Z_RANGE,
         mass=push_constants.MP_MASS,
         diaginertia=push_constants.MP_DIAGINERTIA,
+        kv=push_constants.MP_KV,
         spring_stiffness=push_constants.MP_SPRING_STIFFNESS,
         gravcomp=push_constants.MP_GRAVCOMP,
     )

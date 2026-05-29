@@ -33,6 +33,7 @@ GOAL_WORKSPACE_MIN_HEIGHT = 0.1
 MP_RADIUS = 0.03
 MP_MASS = 0.01
 MP_DIAGINERTIA = 0.001
+MP_KV = 0.5
 
 # masspoint is spawned uniformly distributed in a cylinder,
 # centered at the origin with the following dimensions:

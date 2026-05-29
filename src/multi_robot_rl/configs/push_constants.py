@@ -59,6 +59,7 @@ YAW_THRESHOLD = radians(20)      # success threshold for difference in yaw betwe
 MP_RADIUS = 0.03
 MP_MASS = 0.1
 MP_DIAGINERTIA = 0.01
+MP_KV = 5.0  # scaled up with mass to keep τ=m/kv=0.02s and overcome ground friction (μ*m*g≈1N > old max force 0.5N)
 
 MP_SPAWN_RADIUS = CUBOID_SPAWN_RADIUS
 MP_SPAWN_HEIGHT = MP_RADIUS # masspoint spawns exactly on that height

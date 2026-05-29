@@ -12,8 +12,8 @@
   </worldbody>
 
   <actuator>
-    <velocity kv="0.5" name="mp_x_a" joint="mp_x" ctrllimited="true" ctrlrange="-1.0 1.0"/>
-    <velocity kv="0.5" name="mp_y_a" joint="mp_y" ctrllimited="true" ctrlrange="-1.0 1.0"/>
-    <velocity kv="0.5" name="mp_z_a" joint="mp_z" ctrllimited="true" ctrlrange="-1.0 1.0"/>
+    <velocity kv="{{ MP_KV }}" name="mp_x_a" joint="mp_x" ctrllimited="true" ctrlrange="-1.0 1.0"/>
+    <velocity kv="{{ MP_KV }}" name="mp_y_a" joint="mp_y" ctrllimited="true" ctrlrange="-1.0 1.0"/>
+    <velocity kv="{{ MP_KV }}" name="mp_z_a" joint="mp_z" ctrllimited="true" ctrlrange="-1.0 1.0"/>
   </actuator>
 </mujoco>

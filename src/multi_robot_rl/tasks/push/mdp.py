@@ -6,6 +6,11 @@ from multi_robot_rl.assets.robots.base import RobotConfig
 import multi_robot_rl.configs.push_constants as push_constants
 from multi_robot_rl.common.mdp import get_ee_positions
 
+# Maximum rejection-sampling attempts per object per reset.
+# If exhausted, the pre-seeded fallback position (a valid in-workspace sample) is kept,
+# which may violate separation constraints but prevents infinite loops.
+_MAX_SPAWN_TRIES = 100
+
 
 def _get_cuboid_joint_cfgs(env: ManagerBasedRlEnv) -> list[SceneEntityCfg]:
     if not hasattr(env, "_cuboid_joint_cfgs"):
@@ -190,8 +195,16 @@ def reset_cuboids_and_targets(
     ty   = torch.zeros(num, push_constants.NUM_CUBOIDS, device=env.device)
 
     for i in range(push_constants.NUM_CUBOIDS):
+        # Pre-seed with an unconditional in-workspace sample as fallback.
+        r      = push_constants.TARGET_SPAWN_RADIUS * torch.sqrt(torch.rand(num, device=env.device))
+        theta  = 2.0 * torch.pi * torch.rand(num, device=env.device)
+        tx[:, i] = r * torch.cos(theta)
+        ty[:, i] = r * torch.sin(theta)
+
         needs_resample = torch.ones(num, dtype=torch.bool, device=env.device)
-        while needs_resample.any():
+        for _ in range(_MAX_SPAWN_TRIES):
+            if not needs_resample.any():
+                break
             r      = push_constants.TARGET_SPAWN_RADIUS * torch.sqrt(torch.rand(num, device=env.device))
             theta  = 2.0 * torch.pi * torch.rand(num, device=env.device)
             cand_x = r * torch.cos(theta)
@@ -229,8 +242,16 @@ def reset_cuboids_and_targets(
     y_c   = torch.zeros(num, push_constants.NUM_CUBOIDS, device=env.device)
 
     for i in range(push_constants.NUM_CUBOIDS):
+        # Pre-seed with an unconditional in-workspace sample as fallback.
+        r      = push_constants.CUBOID_SPAWN_RADIUS * torch.sqrt(torch.rand(num, device=env.device))
+        theta  = 2.0 * torch.pi * torch.rand(num, device=env.device)
+        x_c[:, i] = r * torch.cos(theta)
+        y_c[:, i] = r * torch.sin(theta)
+
         needs_resample = torch.ones(num, dtype=torch.bool, device=env.device)
-        while needs_resample.any():
+        for _ in range(_MAX_SPAWN_TRIES):
+            if not needs_resample.any():
+                break
             r      = push_constants.CUBOID_SPAWN_RADIUS * torch.sqrt(torch.rand(num, device=env.device))
             theta  = 2.0 * torch.pi * torch.rand(num, device=env.device)
             cand_x = r * torch.cos(theta)

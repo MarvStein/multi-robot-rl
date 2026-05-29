@@ -5,9 +5,9 @@ from math import pi, radians, sqrt
 # ROBOT COUNTS
 # =========================================================
 
-NUM_MASSPOINTS = 2
+NUM_MASSPOINTS = 1
 NUM_UR10S = 0
-NUM_CUBOIDS = 3  # also the number of target poses
+NUM_CUBOIDS = 1  # also the number of target poses
 
 # =========================================================
 # CUBOIDS

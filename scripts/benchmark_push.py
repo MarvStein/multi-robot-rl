@@ -18,7 +18,7 @@ ALGORITHMS = [
 
 # Keys must match fields in push_constants.py.
 VARIANTS = [
-    {"NUM_MASSPOINTS": 1, "NUM_UR10S": 0, "NUM_CUBOIDS": 1},
+    {"NUM_MASSPOINTS": 2, "NUM_UR10S": 0, "NUM_CUBOIDS": 1},
     {"NUM_MASSPOINTS": 2, "NUM_UR10S": 0, "NUM_CUBOIDS": 2},
 ]
 

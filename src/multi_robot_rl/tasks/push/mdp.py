@@ -151,19 +151,20 @@ def reset_cuboids_and_targets(
     Reset cuboid positions/yaw and target poses for the given env_ids.
 
     Targets are always sampled uniformly over the full workspace (TARGET_SPAWN_RADIUS).
-    Each cuboid i is then sampled within a disk of radius
-    ``cuboid_distance_fraction * CUBOID_MAX_PUSH_DISTANCE`` centred on its paired target i.
-    This means early in training (small fraction) the agent only needs to nudge each
-    cuboid a short distance; as the fraction grows the agent must push cuboids across the
-    full workspace.  The pairing is only used for initialisation — during the episode any
-    cuboid can satisfy any target.
+    Each cuboid i is then sampled uniformly within the workspace disk, but positions
+    further than ``cuboid_distance_fraction * 2 * TARGET_SPAWN_RADIUS`` from paired
+    target i are rejected and resampled.  Early in training (small fraction) cuboids
+    start close to their targets; at fraction=1 the threshold equals the workspace
+    diameter so rejection never triggers and sampling is purely uniform.
+    The pairing is only used for initialisation — during the episode any cuboid can
+    satisfy any target.
 
     Args:
         env: the environment instance
         env_ids: the indices of the environments to reset
         play: when True, overrides cuboid_distance_fraction to 1.0 to disable curriculum
-        cuboid_distance_fraction: float in [0, 1], scales the maximum initial distance
-            between each cuboid and its paired target
+        cuboid_distance_fraction: float in [0, 1], controls the maximum initial
+            cuboid-to-target distance as a fraction of the workspace diameter
     """
     if env_ids is None:
         env_ids = torch.arange(env.num_envs, device=env.device)
@@ -171,7 +172,9 @@ def reset_cuboids_and_targets(
     if play:
         cuboid_distance_fraction = 1.0
 
-    max_push_distance = cuboid_distance_fraction * push_constants.CUBOID_MAX_PUSH_DISTANCE
+    # At fraction=1 the threshold equals the workspace diameter, so the constraint
+    # never rejects and sampling is purely uniform in the workspace.
+    max_push_distance = cuboid_distance_fraction * 2.0 * push_constants.TARGET_SPAWN_RADIUS
 
     _init_push_state(env)
     env._final_target_reached_fraction[env_ids] = env._target_satisfied_mask[env_ids].float().mean(dim=1)
@@ -202,15 +205,27 @@ def reset_cuboids_and_targets(
         poses[:, 6] = torch.sin(half_yaw)   # qz
         env.scene[f"push_target_{t}"].write_mocap_pose_to_sim(mocap_pose=poses, env_ids=env_ids)
 
-    # --- Sample cuboids within max_push_distance of their paired target ---
+    # --- Sample cuboids uniformly in the workspace, rejecting positions too far from their target ---
+    # Sampling from the workspace disk guarantees cuboids are always in bounds.
+    # The distance constraint is tightened by the curriculum; at fraction=1 it never rejects.
     cfgs = _get_cuboid_joint_cfgs(env)
-
-    r_c     = max_push_distance * torch.sqrt(torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device))
-    theta_c = 2.0 * torch.pi * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
     yaw_low, yaw_high = push_constants.CUBOID_YAW_SPAWN_RANGE
-    yaw_c   = yaw_low + (yaw_high - yaw_low) * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
-    x_c     = tx + r_c * torch.cos(theta_c)
-    y_c     = ty + r_c * torch.sin(theta_c)
+    yaw_c = yaw_low + (yaw_high - yaw_low) * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
+    x_c   = torch.zeros(num, push_constants.NUM_CUBOIDS, device=env.device)
+    y_c   = torch.zeros(num, push_constants.NUM_CUBOIDS, device=env.device)
+
+    for i in range(push_constants.NUM_CUBOIDS):
+        needs_resample = torch.ones(num, dtype=torch.bool, device=env.device)
+        while needs_resample.any():
+            r     = push_constants.CUBOID_SPAWN_RADIUS * torch.sqrt(torch.rand(num, device=env.device))
+            theta = 2.0 * torch.pi * torch.rand(num, device=env.device)
+            cand_x = r * torch.cos(theta)
+            cand_y = r * torch.sin(theta)
+            dist = torch.sqrt((cand_x - tx[:, i]) ** 2 + (cand_y - ty[:, i]) ** 2)
+            accepted = needs_resample & (dist <= max_push_distance)
+            x_c[:, i] = torch.where(accepted, cand_x, x_c[:, i])
+            y_c[:, i] = torch.where(accepted, cand_y, y_c[:, i])
+            needs_resample = needs_resample & ~accepted
 
     for i, cfg in enumerate(cfgs):
         joint_pos = torch.stack([x_c[:, i], y_c[:, i], yaw_c[:, i]], dim=-1)

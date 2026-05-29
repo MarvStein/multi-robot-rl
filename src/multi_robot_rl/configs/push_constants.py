@@ -19,8 +19,7 @@ CUBOID_HY = 0.05
 CUBOID_HZ = 0.05
 CUBOID_MASS = 0.5
 CUBOID_RGBA = (0.8, 0.4, 0.1, 1.0)
-CUBOID_SPAWN_RADIUS = 0.3  # used for robot/masspoint spawn ranges and joint limits
-CUBOID_MAX_PUSH_DISTANCE = 0.3  # max initial distance between a cuboid and its paired target (curriculum axis)
+CUBOID_SPAWN_RADIUS = 0.3
 CUBOID_YAW_SPAWN_RANGE = (-radians(60), radians(60))
 
 # =========================================================

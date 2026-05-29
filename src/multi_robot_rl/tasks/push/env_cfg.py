@@ -6,6 +6,7 @@ from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
 from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.metrics_manager import MetricsTermCfg
+from mjlab.managers.curriculum_manager import CurriculumTermCfg
 from mjlab.terrains import TerrainEntityCfg
 from mjlab.scene import SceneCfg
 from mjlab.sim import SimulationCfg, MujocoCfg
@@ -23,6 +24,7 @@ from multi_robot_rl.assets.robots import masspoint, ur10
 # custom MDP imports and constants
 from multi_robot_rl.tasks.push import mdp as push_mdp
 from multi_robot_rl.common import mdp as common_mdp
+from multi_robot_rl.common import curriculum as common_curriculum
 import multi_robot_rl.configs.push_constants as push_constants
 
 
@@ -68,12 +70,9 @@ def make_push_env(play: bool = False) -> ManagerBasedRlEnvCfg:
     for robot in robots:
         obs_terms.update(robot.obs_terms)
     obs_terms.update({
-        "cuboid_states_obs": ObservationTermCfg(
-            func=push_mdp.cuboid_states_obs,
-        ),
-        "target_poses": ObservationTermCfg(
-            func=push_mdp.target_poses_obs,
-        ),
+        "cuboid_states_obs": ObservationTermCfg(func=push_mdp.cuboid_states_obs),
+        "target_poses_obs": ObservationTermCfg(func=push_mdp.target_poses_obs),
+        "target_satisfied_mask_obs": ObservationTermCfg(func=push_mdp.target_satisfied_mask_obs),
     })
     observations = {
         "actor":  ObservationGroupCfg(obs_terms),
@@ -91,10 +90,11 @@ def make_push_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         ),
         "action_rate_penalty": RewardTermCfg(
             func=mjlab_rewards.action_rate_l2,
-            weight=-0.0,
+            weight=-0.01,
         ),
         "out_of_bounds_penalty": RewardTermCfg(
-            func=mjlab_rewards.is_terminated,
+            func=push_mdp.out_of_bounds,
+            params={"robots": robots},
             weight=-10.0,
         ),
         "collision_penalty": RewardTermCfg(
@@ -110,13 +110,18 @@ def make_push_env(play: bool = False) -> ManagerBasedRlEnvCfg:
             func=push_mdp.out_of_bounds,
             params={"robots": robots},
         ),
+        "all_targets_reached": TerminationTermCfg(func=push_mdp.all_targets_reached),
     }
 
     events = {
         "reset_cuboids_and_targets": EventTermCfg(
             func=push_mdp.reset_cuboids_and_targets,
             mode="reset",
-            params={"num_cuboids": push_constants.NUM_CUBOIDS},
+            params={
+                "play": play,
+                "cuboid_radius_fraction": 0.2,
+                "target_radius_fraction": 0.2,
+            },
         ),
     }
     for robot in robots:
@@ -128,11 +133,30 @@ def make_push_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         ),
     }
 
+    curriculum = {
+        "target_spawn_curriculum": CurriculumTermCfg(
+            func=common_curriculum.metric_event_curriculum,
+            params={
+                "event_name": "reset_cuboids_and_targets",
+                "metric_name": "targets_reached_fraction",
+                "alpha": 1e-3,
+                "stages": [
+                    {"metric_value": 0.0, "params": {"cuboid_radius_fraction": 0.2, "target_radius_fraction": 0.2}},
+                    {"metric_value": 0.2, "params": {"cuboid_radius_fraction": 0.4, "target_radius_fraction": 0.4}},
+                    {"metric_value": 0.4, "params": {"cuboid_radius_fraction": 0.6, "target_radius_fraction": 0.6}},
+                    {"metric_value": 0.6, "params": {"cuboid_radius_fraction": 0.8, "target_radius_fraction": 0.8}},
+                    {"metric_value": 0.8, "params": {"cuboid_radius_fraction": 1.0, "target_radius_fraction": 1.0}},
+                ],
+            },
+        ),
+    }
+
     viewer = ViewerConfig(
         origin_type=ViewerConfig.OriginType.WORLD,
-        lookat=(0.0, 0.0, 0.1),
-        distance=2.5,
-        elevation=-50.0,
+        lookat=(0.0, 0.0, 0.2),
+        azimuth=136.3,
+        elevation=-26.1,
+        distance=2.21,
     ) if play else ViewerConfig()
 
     return ManagerBasedRlEnvCfg(
@@ -144,10 +168,12 @@ def make_push_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         rewards=rewards,
         terminations=terminations,
         metrics=metrics,
+        curriculum=curriculum,
         sim=SimulationCfg(
             mujoco=MujocoCfg(timestep=0.01),
             njmax=500,
         ),
         decimation=5,
         episode_length_s=5.0,
+        scale_rewards_by_dt=False,
     )

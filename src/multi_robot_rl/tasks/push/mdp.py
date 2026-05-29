@@ -19,6 +19,17 @@ def _get_cuboid_joint_cfgs(env: ManagerBasedRlEnv) -> list[SceneEntityCfg]:
     return env._cuboid_joint_cfgs
 
 
+def _init_push_state(env: ManagerBasedRlEnv) -> None:
+    if not hasattr(env, "_target_satisfied_mask"):
+        env.target_poses = torch.zeros(
+            (env.num_envs, push_constants.NUM_CUBOIDS, 4), device=env.device
+        )
+        env._target_satisfied_mask = torch.zeros(
+            (env.num_envs, push_constants.NUM_CUBOIDS), dtype=torch.bool, device=env.device
+        )
+        env._final_target_reached_fraction = torch.zeros(env.num_envs, device=env.device)
+
+
 # =========================================================
 # OBSERVATIONS
 # =========================================================
@@ -38,17 +49,19 @@ def cuboid_states_obs(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 
 def target_poses_obs(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
     """Returns (num_envs, num_targets * 5): [x, y, z, sin_yaw, cos_yaw] per target."""
-    if not hasattr(env, "target_poses"):
-        num_targets = push_constants.NUM_CUBOIDS
-        return torch.zeros(env.num_envs, num_targets * 5, device=env.device)
-
-    poses = env.target_poses  # (num_envs, num_targets, 4): x, y, z, yaw — yaw→sin/cos expands to 5
+    _init_push_state(env)
+    poses = env.target_poses  # (num_envs, num_targets, 4): x, y, z, yaw
     x   = poses[:, :, 0:1]
     y   = poses[:, :, 1:2]
     z   = poses[:, :, 2:3]
     yaw = poses[:, :, 3:4]
     flat = torch.cat([x, y, z, torch.sin(yaw), torch.cos(yaw)], dim=-1)  # (num_envs, num_targets, 5)
     return flat.flatten(start_dim=1)
+
+def target_satisfied_mask_obs(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
+    """Returns the target_satisfied_mask as float: (num_envs, NUM_CUBOIDS)"""
+    _init_push_state(env)
+    return env._target_satisfied_mask.float()
 
 
 # =========================================================
@@ -63,6 +76,11 @@ def out_of_bounds(env: ManagerBasedRlEnv, robots: list[RobotConfig], **kwargs) -
     out_mask = (r > push_constants.OUT_OF_BOUNDS_RADIUS) | (z > push_constants.OUT_OF_BOUNDS_HEIGHT) | (z < 0.0)
     return out_mask.any(dim=1)
 
+def all_targets_reached(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
+    """Return a tensor indicating in which envs all targets have been satisfied."""
+    _init_push_state(env)
+    return env._target_satisfied_mask.all(dim=1)
+
 
 # =========================================================
 # REWARDS
@@ -70,13 +88,11 @@ def out_of_bounds(env: ManagerBasedRlEnv, robots: list[RobotConfig], **kwargs) -
 
 def cuboid_placed_reward(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
     """
-    Sparse one-time reward when any cuboid is placed at a target pose, where "placed" means within both the XY
-    POSITION_THRESHOLD (XY) and YAW_THRESHOLD. Any cuboid can satisfy any target.
+    Sparse one-time reward of 1/NUM_CUBOIDS when any cuboid is placed at a target pose, where "placed" means
+    within both POSITION_THRESHOLD (XY) and YAW_THRESHOLD. Any cuboid can satisfy any target.
+    Total reward = 1.0 when all targets are satisfied.
     """
-    if not hasattr(env, "target_poses"):
-        return torch.zeros(env.num_envs, device=env.device)
-    if not hasattr(env, "_target_satisfied_mask"):
-        _init_target_satisfied_mask(env, push_constants.NUM_CUBOIDS)
+    _init_push_state(env)
 
     cfgs = _get_cuboid_joint_cfgs(env)
     # Collect cuboid (x, y, yaw) — shape (num_envs, num_cuboids, 3)
@@ -95,7 +111,6 @@ def cuboid_placed_reward(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
     pos_dists = torch.cdist(cuboid_xy, target_xy)
 
     # Angular differences: (num_envs, num_cuboids, num_targets)
-    # Broadcast: cuboid_yaw (N,N_c) vs target_yaw (N,N_t)
     # TODO: double check angular distance calculation
     d_yaw = cuboid_yaw.unsqueeze(2) - target_yaw.unsqueeze(1)
     ang_dists = torch.abs((d_yaw + torch.pi) % (2 * torch.pi) - torch.pi)
@@ -109,7 +124,7 @@ def cuboid_placed_reward(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
     newly_satisfied = any_cuboid_satisfies & ~env._target_satisfied_mask
     env._target_satisfied_mask |= newly_satisfied
 
-    return newly_satisfied.float().sum(dim=1)
+    return newly_satisfied.float().sum(dim=1) / push_constants.NUM_CUBOIDS  # (num_envs,)
 
 
 # =========================================================
@@ -117,50 +132,54 @@ def cuboid_placed_reward(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 # =========================================================
 
 def targets_reached_fraction(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
-    """Mean fraction of targets currently satisfied across envs."""
-    if not hasattr(env, "_target_satisfied_mask"):
-        return torch.zeros(env.num_envs, device=env.device)
-    return env._target_satisfied_mask.float().mean(dim=1)
+    """Returns the fraction of targets satisfied at the end of the previous episode."""
+    _init_push_state(env)
+    return env._final_target_reached_fraction
 
 # =========================================================
 # EVENTS & RESETS
 # =========================================================
 
-def _init_target_poses(env: ManagerBasedRlEnv) -> None:
-    if not hasattr(env, "target_poses"):
-        env.target_poses = torch.zeros((env.num_envs, push_constants.NUM_CUBOIDS, 4), device=env.device)
-
-
-def _init_target_satisfied_mask(env: ManagerBasedRlEnv) -> None:
-    if not hasattr(env, "_target_satisfied_mask"):
-        env._target_satisfied_mask = torch.zeros(
-            (env.num_envs, push_constants.NUM_CUBOIDS), dtype=torch.bool, device=env.device
-        )
-
-
 def reset_cuboids_and_targets(
     env: ManagerBasedRlEnv,
     env_ids,
+    play: bool = False,
+    cuboid_radius_fraction: float = 1.0,
+    target_radius_fraction: float = 1.0,
     **kwargs,
 ) -> None:
-    """Reset cuboid positions/yaw and target poses for the given env_ids."""
+    """
+    Reset cuboid positions/yaw and target poses for the given env_ids.
+
+    Args:
+        env: the environment instance
+        env_ids: the indices of the environments to reset
+        play: when True, overrides fractions to 1.0 to disable curriculum in evaluation
+        cuboid_radius_fraction: float in [0, 1], fraction of CUBOID_SPAWN_RADIUS used for sampling
+        target_radius_fraction: float in [0, 1], fraction of TARGET_SPAWN_RADIUS used for sampling
+    """
     if env_ids is None:
         env_ids = torch.arange(env.num_envs, device=env.device)
 
-    num_cuboids = push_constants.NUM_CUBOIDS
+    if play:
+        cuboid_radius_fraction = 1.0
+        target_radius_fraction = 1.0
 
-    _init_target_poses(env)
-    _init_target_satisfied_mask(env)
+    cuboid_spawn_radius = cuboid_radius_fraction * push_constants.CUBOID_SPAWN_RADIUS
+    target_spawn_radius = target_radius_fraction * push_constants.TARGET_SPAWN_RADIUS
+
+    _init_push_state(env)
+    env._final_target_reached_fraction[env_ids] = env._target_satisfied_mask[env_ids].float().mean(dim=1)
     env._target_satisfied_mask[env_ids] = False
     num = len(env_ids)
 
     # --- Reset cuboid joint states ---
     cfgs = _get_cuboid_joint_cfgs(env)
 
-    r_c     = push_constants.CUBOID_SPAWN_RADIUS * torch.sqrt(torch.rand(num, num_cuboids, device=env.device))
-    theta_c = 2.0 * torch.pi * torch.rand(num, num_cuboids, device=env.device)
+    r_c     = cuboid_spawn_radius * torch.sqrt(torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device))
+    theta_c = 2.0 * torch.pi * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
     yaw_low, yaw_high = push_constants.CUBOID_YAW_SPAWN_RANGE
-    yaw_c   = yaw_low + (yaw_high - yaw_low) * torch.rand(num, num_cuboids, device=env.device)
+    yaw_c   = yaw_low + (yaw_high - yaw_low) * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
     x_c     = r_c * torch.cos(theta_c)
     y_c     = r_c * torch.sin(theta_c)
 
@@ -173,10 +192,10 @@ def reset_cuboids_and_targets(
         env.scene[cfg.name].write_joint_state_to_sim(joint_pos, joint_vel, env_ids=env_ids, joint_ids=joint_ids)
 
     # --- Sample new target poses ---
-    r_t     = push_constants.TARGET_SPAWN_RADIUS * torch.sqrt(torch.rand(num, num_cuboids, device=env.device))
-    theta_t = 2.0 * torch.pi * torch.rand(num, num_cuboids, device=env.device)
+    r_t     = target_spawn_radius * torch.sqrt(torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device))
+    theta_t = 2.0 * torch.pi * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
     tyaw_low, tyaw_high = push_constants.TARGET_YAW_RANGE
-    tyaw    = tyaw_low + (tyaw_high - tyaw_low) * torch.rand(num, num_cuboids, device=env.device)
+    tyaw    = tyaw_low + (tyaw_high - tyaw_low) * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
     tx      = r_t * torch.cos(theta_t)
     ty      = r_t * torch.sin(theta_t)
     tz      = 0
@@ -186,7 +205,7 @@ def reset_cuboids_and_targets(
     env.target_poses[env_ids, :, 2] = tz
     env.target_poses[env_ids, :, 3] = tyaw
 
-    for t in range(num_cuboids):
+    for t in range(push_constants.NUM_CUBOIDS):
         half_yaw = tyaw[:, t] * 0.5
         poses = torch.zeros((num, 7), device=env.device)
         poses[:, 0] = tx[:, t]

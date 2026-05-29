@@ -150,14 +150,16 @@ def reset_cuboids_and_targets(
     """
     Reset cuboid positions/yaw and target poses for the given env_ids.
 
-    Targets are always sampled uniformly over the full workspace (TARGET_SPAWN_RADIUS).
-    Each cuboid i is then sampled uniformly within the workspace disk, but positions
-    further than ``cuboid_distance_fraction * 2 * TARGET_SPAWN_RADIUS`` from paired
-    target i are rejected and resampled.  Early in training (small fraction) cuboids
-    start close to their targets; at fraction=1 the threshold equals the workspace
-    diameter so rejection never triggers and sampling is purely uniform.
-    The pairing is only used for initialisation — during the episode any cuboid can
-    satisfy any target.
+    Targets are always sampled uniformly over the full workspace (TARGET_SPAWN_RADIUS),
+    with pairwise rejection to keep targets at least TARGET_MIN_SEPARATION apart
+    (= 2 * POSITION_THRESHOLD, so no single cuboid can simultaneously satisfy two targets).
+    Each cuboid i is then sampled uniformly within the workspace disk, rejecting positions
+    that are (a) further than ``cuboid_distance_fraction * 2 * TARGET_SPAWN_RADIUS`` from
+    paired target i, or (b) closer than CUBOID_MIN_SEPARATION (bounding-circle diameter)
+    to any already-placed cuboid.  At fraction=1 constraint (a) equals the workspace
+    diameter and never rejects, giving purely uniform sampling.
+    The cuboid–target pairing is only used for initialisation — during the episode any
+    cuboid can satisfy any target.
 
     Args:
         env: the environment instance
@@ -172,7 +174,7 @@ def reset_cuboids_and_targets(
     if play:
         cuboid_distance_fraction = 1.0
 
-    # At fraction=1 the threshold equals the workspace diameter, so the constraint
+    # At fraction=1 the threshold equals the workspace diameter, so constraint (a)
     # never rejects and sampling is purely uniform in the workspace.
     max_push_distance = cuboid_distance_fraction * 2.0 * push_constants.TARGET_SPAWN_RADIUS
 
@@ -181,15 +183,29 @@ def reset_cuboids_and_targets(
     env._target_satisfied_mask[env_ids] = False
     num = len(env_ids)
 
-    # --- Sample target poses uniformly in the full workspace ---
-    r_t      = push_constants.TARGET_SPAWN_RADIUS * torch.sqrt(torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device))
-    theta_t  = 2.0 * torch.pi * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
+    # --- Sample target poses: uniform in workspace, pairwise separation enforced ---
     tyaw_low, tyaw_high = push_constants.TARGET_YAW_RANGE
-    tyaw     = tyaw_low + (tyaw_high - tyaw_low) * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
-    tx       = r_t * torch.cos(theta_t)
-    ty       = r_t * torch.sin(theta_t)
-    tz       = 0
+    tyaw = tyaw_low + (tyaw_high - tyaw_low) * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
+    tx   = torch.zeros(num, push_constants.NUM_CUBOIDS, device=env.device)
+    ty   = torch.zeros(num, push_constants.NUM_CUBOIDS, device=env.device)
 
+    for i in range(push_constants.NUM_CUBOIDS):
+        needs_resample = torch.ones(num, dtype=torch.bool, device=env.device)
+        while needs_resample.any():
+            r      = push_constants.TARGET_SPAWN_RADIUS * torch.sqrt(torch.rand(num, device=env.device))
+            theta  = 2.0 * torch.pi * torch.rand(num, device=env.device)
+            cand_x = r * torch.cos(theta)
+            cand_y = r * torch.sin(theta)
+            valid  = torch.ones(num, dtype=torch.bool, device=env.device)
+            for j in range(i):
+                dist  = torch.sqrt((cand_x - tx[:, j]) ** 2 + (cand_y - ty[:, j]) ** 2)
+                valid &= dist >= push_constants.TARGET_MIN_SEPARATION
+            accepted  = needs_resample & valid
+            tx[:, i]  = torch.where(accepted, cand_x, tx[:, i])
+            ty[:, i]  = torch.where(accepted, cand_y, ty[:, i])
+            needs_resample = needs_resample & ~accepted
+
+    tz = 0
     env.target_poses[env_ids, :, 0] = tx
     env.target_poses[env_ids, :, 1] = ty
     env.target_poses[env_ids, :, 2] = tz
@@ -205,9 +221,7 @@ def reset_cuboids_and_targets(
         poses[:, 6] = torch.sin(half_yaw)   # qz
         env.scene[f"push_target_{t}"].write_mocap_pose_to_sim(mocap_pose=poses, env_ids=env_ids)
 
-    # --- Sample cuboids uniformly in the workspace, rejecting positions too far from their target ---
-    # Sampling from the workspace disk guarantees cuboids are always in bounds.
-    # The distance constraint is tightened by the curriculum; at fraction=1 it never rejects.
+    # --- Sample cuboids: uniform in workspace, cuboid-to-target and pairwise separation enforced ---
     cfgs = _get_cuboid_joint_cfgs(env)
     yaw_low, yaw_high = push_constants.CUBOID_YAW_SPAWN_RANGE
     yaw_c = yaw_low + (yaw_high - yaw_low) * torch.rand(num, push_constants.NUM_CUBOIDS, device=env.device)
@@ -217,12 +231,16 @@ def reset_cuboids_and_targets(
     for i in range(push_constants.NUM_CUBOIDS):
         needs_resample = torch.ones(num, dtype=torch.bool, device=env.device)
         while needs_resample.any():
-            r     = push_constants.CUBOID_SPAWN_RADIUS * torch.sqrt(torch.rand(num, device=env.device))
-            theta = 2.0 * torch.pi * torch.rand(num, device=env.device)
+            r      = push_constants.CUBOID_SPAWN_RADIUS * torch.sqrt(torch.rand(num, device=env.device))
+            theta  = 2.0 * torch.pi * torch.rand(num, device=env.device)
             cand_x = r * torch.cos(theta)
             cand_y = r * torch.sin(theta)
-            dist = torch.sqrt((cand_x - tx[:, i]) ** 2 + (cand_y - ty[:, i]) ** 2)
-            accepted = needs_resample & (dist <= max_push_distance)
+            dist_target = torch.sqrt((cand_x - tx[:, i]) ** 2 + (cand_y - ty[:, i]) ** 2)
+            valid  = dist_target <= max_push_distance
+            for j in range(i):
+                dist_cuboid = torch.sqrt((cand_x - x_c[:, j]) ** 2 + (cand_y - y_c[:, j]) ** 2)
+                valid &= dist_cuboid >= push_constants.CUBOID_MIN_SEPARATION
+            accepted  = needs_resample & valid
             x_c[:, i] = torch.where(accepted, cand_x, x_c[:, i])
             y_c[:, i] = torch.where(accepted, cand_y, y_c[:, i])
             needs_resample = needs_resample & ~accepted

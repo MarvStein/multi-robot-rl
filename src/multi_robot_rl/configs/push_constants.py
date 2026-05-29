@@ -1,13 +1,13 @@
 """ Constants for the push task """
-from math import pi, radians
+from math import pi, radians, sqrt
 
 # =========================================================
 # ROBOT COUNTS
 # =========================================================
 
-NUM_MASSPOINTS = 2
-NUM_UR10S = 1
-NUM_CUBOIDS = 3  # also the number of target poses
+NUM_MASSPOINTS = 1
+NUM_UR10S = 0
+NUM_CUBOIDS = 1  # also the number of target poses
 
 # =========================================================
 # CUBOIDS
@@ -77,3 +77,9 @@ MP_Z_VEL_RANDOM_RANGE = (0.0, 0.0)
 
 OUT_OF_BOUNDS_RADIUS = CUBOID_SPAWN_RADIUS + 0.2
 OUT_OF_BOUNDS_HEIGHT = 0.8
+
+# minimum pairwise centre-to-centre separation used during spawn rejection sampling:
+# cuboids: bounding-circle diameter, guarantees no overlap regardless of yaw
+# targets: twice the success threshold, ensures no single cuboid can satisfy two targets at once
+CUBOID_MIN_SEPARATION = 2.0 * sqrt(CUBOID_HX ** 2 + CUBOID_HY ** 2)
+TARGET_MIN_SEPARATION = 2.0 * POSITION_THRESHOLD

@@ -61,7 +61,7 @@ def ppo_runner_cfg_push_task() -> RslRlOnPolicyRunnerCfg:
     """Runner configuration for PPO in the push task."""
     cfg = ppo_runner_cfg_default()
     cfg.experiment_name = "push_task"
-    cfg.max_iterations = 3901
+    cfg.max_iterations = 1 + 25_000 # total env steps = max_iterations * num_steps_per_env * num_envs = 25_000 * 24 * 2048
     return cfg
 
 def fast_sac_runner_cfg_reach_task() -> RslRlFastSacRunnerCfg:

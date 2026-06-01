@@ -10,7 +10,7 @@ from benchmark_base import AlgorithmSpec, BenchmarkRunner, REPO_ROOT
 # Config
 # ---------------------------------------------------------------------------
 
-TIMEOUT_S = 3 * 60 * 60  # per run
+TIMEOUT_S = 5 * 60 * 60  # per run
 
 ALGORITHMS = [
     AlgorithmSpec("ppo", "push"),

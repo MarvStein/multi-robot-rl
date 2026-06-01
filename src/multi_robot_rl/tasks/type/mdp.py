@@ -13,9 +13,14 @@ def _init_type_state(env: ManagerBasedRlEnv) -> None:
             (env.num_envs, type_constants.NUM_ACTIVE_KEYS), dtype=torch.long, device=env.device
         )
         env.newly_pressed_count = torch.zeros(env.num_envs, device=env.device)
-        env.wrong_key_pressed = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+        env.newly_wrong_count = torch.zeros(env.num_envs, device=env.device)
         env._total_keys_pressed = torch.zeros(env.num_envs, device=env.device)
         env._final_throughput = torch.zeros(env.num_envs, device=env.device)
+        env._total_wrong_keys_pressed = torch.zeros(env.num_envs, device=env.device)
+        env._final_wrong_keys_per_episode = torch.zeros(env.num_envs, device=env.device)
+        env._prev_is_pressed = torch.zeros(
+            (env.num_envs, type_constants.TOTAL_KEYS), dtype=torch.bool, device=env.device
+        )
 
 
 # =========================================================
@@ -57,9 +62,9 @@ def key_pressed_reward(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
     return env.newly_pressed_count
 
 def wrong_key_penalty(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
-    """1.0 if any non-active key is pressed this step."""
+    """Count of non-active keys newly pressed this step (rising-edge, matches wrong_keys_per_episode metric)."""
     _init_type_state(env)
-    return env.wrong_key_pressed.float()
+    return env.newly_wrong_count
 
 
 # =========================================================
@@ -70,6 +75,11 @@ def throughput(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
     """Total correctly pressed keys in the previous episode."""
     _init_type_state(env)
     return env._final_throughput
+
+def wrong_keys_per_episode(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
+    """Total wrong key presses in the previous episode."""
+    _init_type_state(env)
+    return env._final_wrong_keys_per_episode
 
 
 # =========================================================
@@ -91,8 +101,11 @@ def reset_keyboard_state(env: ManagerBasedRlEnv, env_ids, **kwargs) -> None:
 
     env._final_throughput[env_ids] = env._total_keys_pressed[env_ids]
     env._total_keys_pressed[env_ids] = 0.0
+    env._final_wrong_keys_per_episode[env_ids] = env._total_wrong_keys_pressed[env_ids]
+    env._total_wrong_keys_pressed[env_ids] = 0.0
     env.newly_pressed_count[env_ids] = 0.0
-    env.wrong_key_pressed[env_ids] = False
+    env.newly_wrong_count[env_ids] = 0.0
+    env._prev_is_pressed[env_ids] = False
     env.active_keys[env_ids] = _sample_unique_active_keys(len(env_ids), env.device)
 
 
@@ -107,12 +120,15 @@ def _evaluate_key_presses(
     env: ManagerBasedRlEnv,
     env_ids: torch.Tensor,
     is_pressed: torch.Tensor,
+    prev_is_pressed: torch.Tensor,
 ) -> torch.Tensor:
     """
     Determines which active key slots are pressed and whether any wrong key is pressed.
 
     Side effects:
     - Updates env.wrong_key_pressed for env_ids.
+    - Increments env._total_wrong_keys_pressed by the count of newly pressed wrong keys
+      (rising-edge only, so holding a wrong key down does not accumulate further).
 
     Returns:
         slot_pressed: (n, NUM_ACTIVE_KEYS) bool — which slots had their active key pressed.
@@ -127,7 +143,10 @@ def _evaluate_key_presses(
     # Wrong key: any pressed key not in active set
     active_mask = torch.zeros(n, type_constants.TOTAL_KEYS, dtype=torch.bool, device=env.device)
     active_mask.scatter_(1, active_keys_local, True)
-    env.wrong_key_pressed[env_ids] = (is_pressed & ~active_mask).any(dim=1)
+    # Rising-edge wrong key count: used for both the penalty reward and the metric
+    newly_wrong = (is_pressed & ~active_mask) & ~prev_is_pressed  # (n, TOTAL_KEYS)
+    env.newly_wrong_count[env_ids] = newly_wrong.sum(dim=1).float()
+    env._total_wrong_keys_pressed[env_ids] += env.newly_wrong_count[env_ids]
 
     return slot_pressed
 
@@ -203,8 +222,11 @@ def update_keyboard_state(env: ManagerBasedRlEnv, env_ids, **kwargs) -> None:
     _init_type_state(env)
 
     env.newly_pressed_count[env_ids] = 0.0
+    env.newly_wrong_count[env_ids] = 0.0
 
+    prev_is_pressed = env._prev_is_pressed[env_ids].clone()
     key_qpos, is_pressed = _detect_key_presses(env, env_ids)
-    slot_pressed = _evaluate_key_presses(env, env_ids, is_pressed)
+    env._prev_is_pressed[env_ids] = is_pressed
+    slot_pressed = _evaluate_key_presses(env, env_ids, is_pressed, prev_is_pressed)
     _handle_successful_presses(env, env_ids, slot_pressed)
     _update_marker_poses(env, env_ids, key_qpos)

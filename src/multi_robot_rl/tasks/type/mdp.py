@@ -148,18 +148,30 @@ def _handle_successful_presses(
     env._total_keys_pressed[env_ids] += counts
     env.newly_pressed_count[env_ids] = counts
 
+    n = len(env_ids)
     current_active = env.active_keys[env_ids].clone()  # (n, NUM_ACTIVE_KEYS)
 
+    # Process slots sequentially so that a replacement written to slot i is
+    # already excluded from the candidate pool when we sample for slot i+1
+    # (maintains the uniqueness invariant across slots within the same env).
     for slot_i in range(type_constants.NUM_ACTIVE_KEYS):
-        pressed_in_slot = slot_pressed[:, slot_i]
+        pressed_in_slot = slot_pressed[:, slot_i]  # (n,) bool
         if not pressed_in_slot.any():
             continue
-        for local_idx in pressed_in_slot.nonzero(as_tuple=False).flatten():
-            occupied = set(current_active[local_idx].tolist())
-            occupied.discard(current_active[local_idx, slot_i].item())
-            candidates = [k for k in range(type_constants.TOTAL_KEYS) if k not in occupied]
-            new_key = candidates[torch.randint(len(candidates), (1,), device=env.device).item()]
-            current_active[local_idx, slot_i] = new_key
+
+        # Occupation mask: keys already taken by other slots — (n, TOTAL_KEYS).
+        occupied = torch.zeros(n, type_constants.TOTAL_KEYS, dtype=torch.bool, device=env.device)
+        for other in range(type_constants.NUM_ACTIVE_KEYS):
+            if other == slot_i:
+                continue
+            occupied.scatter_(1, current_active[:, other:other + 1], True)
+
+        # Single batched sample for all n envs; masked positions can't win argmax.
+        noise = torch.rand(n, type_constants.TOTAL_KEYS, device=env.device)
+        noise.masked_fill_(occupied, -1.0)
+        new_keys = torch.argmax(noise, dim=1)  # (n,)
+
+        current_active[:, slot_i] = torch.where(pressed_in_slot, new_keys, current_active[:, slot_i])
 
     env.active_keys[env_ids] = current_active
 

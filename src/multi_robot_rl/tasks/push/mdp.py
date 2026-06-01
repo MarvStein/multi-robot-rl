@@ -9,7 +9,7 @@ from multi_robot_rl.common.mdp import get_ee_positions
 # Maximum rejection-sampling attempts per object per reset.
 # If exhausted, the pre-seeded fallback position (a valid in-workspace sample) is kept,
 # which may violate separation constraints but prevents infinite loops.
-_MAX_SPAWN_TRIES = 100
+_MAX_SPAWN_TRIES = 30
 
 
 def _get_cuboid_joint_cfgs(env: ManagerBasedRlEnv) -> list[SceneEntityCfg]:
@@ -203,16 +203,17 @@ def reset_cuboids_and_targets(
 
         needs_resample = torch.ones(num, dtype=torch.bool, device=env.device)
         for _ in range(_MAX_SPAWN_TRIES):
-            if not needs_resample.any():
-                break
             r      = push_constants.TARGET_SPAWN_RADIUS * torch.sqrt(torch.rand(num, device=env.device))
             theta  = 2.0 * torch.pi * torch.rand(num, device=env.device)
             cand_x = r * torch.cos(theta)
             cand_y = r * torch.sin(theta)
-            valid  = torch.ones(num, dtype=torch.bool, device=env.device)
-            for j in range(i):
-                dist  = torch.sqrt((cand_x - tx[:, j]) ** 2 + (cand_y - ty[:, j]) ** 2)
-                valid &= dist >= push_constants.TARGET_MIN_SEPARATION
+            if i > 0:
+                cand_x_exp = cand_x.unsqueeze(1)
+                cand_y_exp = cand_y.unsqueeze(1)
+                dists = torch.sqrt((cand_x_exp - tx[:, :i]) ** 2 + (cand_y_exp - ty[:, :i]) ** 2)
+                valid = (dists >= push_constants.TARGET_MIN_SEPARATION).all(dim=1)
+            else:
+                valid = torch.ones(num, dtype=torch.bool, device=env.device)
             accepted  = needs_resample & valid
             tx[:, i]  = torch.where(accepted, cand_x, tx[:, i])
             ty[:, i]  = torch.where(accepted, cand_y, ty[:, i])
@@ -250,17 +251,17 @@ def reset_cuboids_and_targets(
 
         needs_resample = torch.ones(num, dtype=torch.bool, device=env.device)
         for _ in range(_MAX_SPAWN_TRIES):
-            if not needs_resample.any():
-                break
             r      = push_constants.CUBOID_SPAWN_RADIUS * torch.sqrt(torch.rand(num, device=env.device))
             theta  = 2.0 * torch.pi * torch.rand(num, device=env.device)
             cand_x = r * torch.cos(theta)
             cand_y = r * torch.sin(theta)
             dist_target = torch.sqrt((cand_x - tx[:, i]) ** 2 + (cand_y - ty[:, i]) ** 2)
             valid  = dist_target <= max_push_distance
-            for j in range(i):
-                dist_cuboid = torch.sqrt((cand_x - x_c[:, j]) ** 2 + (cand_y - y_c[:, j]) ** 2)
-                valid &= dist_cuboid >= push_constants.CUBOID_MIN_SEPARATION
+            if i > 0:
+                cand_x_exp = cand_x.unsqueeze(1)
+                cand_y_exp = cand_y.unsqueeze(1)
+                dists_c = torch.sqrt((cand_x_exp - x_c[:, :i]) ** 2 + (cand_y_exp - y_c[:, :i]) ** 2)
+                valid &= (dists_c >= push_constants.CUBOID_MIN_SEPARATION).all(dim=1)
             accepted  = needs_resample & valid
             x_c[:, i] = torch.where(accepted, cand_x, x_c[:, i])
             y_c[:, i] = torch.where(accepted, cand_y, y_c[:, i])

@@ -124,6 +124,9 @@ def make_type_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         "throughput": MetricsTermCfg(
             func=type_mdp.throughput,
         ),
+        "wrong_keys_per_episode": MetricsTermCfg(
+            func=type_mdp.wrong_keys_per_episode,
+        ),
     }
 
     viewer = ViewerConfig(

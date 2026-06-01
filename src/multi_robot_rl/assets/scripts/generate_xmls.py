@@ -127,12 +127,12 @@ def _generate_masspoint_xml(suffix: str,
 
 def _generate_everything_for_type_task():
     """
-    Generates the XML files for the active and next key markers, the keyboard XML and the masspoint XML,
+    Generates the XML files for the active key markers, the keyboard XML and the masspoint XML,
     based on the values in type_constants.py. Note that there may be multiple masspoints which share the same XML.
     """
     _generate_keyboard_xml()
-    _generate_marker_xml("active_key", type_constants.ACTIVE_KEY_RGBA, type_constants.MARKER_SIZE)
-    _generate_marker_xml("next_key", type_constants.NEXT_KEY_RGBA, type_constants.MARKER_SIZE)
+    for i in range(type_constants.NUM_ACTIVE_KEYS):
+        _generate_marker_xml(f"active_key_{i}", type_constants.ACTIVE_KEY_RGBA, type_constants.MARKER_SIZE)
     _generate_masspoint_xml(
         "type_task",
         type_constants.MP_RADIUS,

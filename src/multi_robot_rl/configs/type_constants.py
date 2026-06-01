@@ -9,6 +9,12 @@ NUM_MASSPOINTS = 1
 NUM_UR10S = 1
 
 # =========================================================
+# ACTIVE KEYS
+# =========================================================
+
+NUM_ACTIVE_KEYS = 1  # number of simultaneously active keys
+
+# =========================================================
 # KEYBOARD GEOMETRY
 # =========================================================
 
@@ -50,7 +56,6 @@ UR10_JOINT_POS_LIMITS = {
 # =========================================================
 
 KEY_PRESS_THRESHOLD_PCT = 0.5  # key needs to be pressed this fraction of the way down to count
-FREEZE_STEPS = 5               # policy steps to freeze the masspoint that pressed the key
 
 # =========================================================
 # AUTO-COMPUTED

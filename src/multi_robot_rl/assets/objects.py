@@ -17,14 +17,9 @@ def get_keyboard_entity_cfg() -> EntityCfg:
         return mujoco.MjSpec.from_file(str(_GENERATED_XML_DIR / "keyboard.xml"))
     return EntityCfg(spec_fn=get_spec)
 
-def get_active_key_marker_entity_cfg() -> EntityCfg:
+def get_active_key_marker_entity_cfg(i: int) -> EntityCfg:
     def get_spec() -> mujoco.MjSpec:
-        return mujoco.MjSpec.from_file(str(_GENERATED_XML_DIR / "active_key.xml"))
-    return EntityCfg(spec_fn=get_spec)
-
-def get_next_key_marker_entity_cfg() -> EntityCfg:
-    def get_spec() -> mujoco.MjSpec:
-        return mujoco.MjSpec.from_file(str(_GENERATED_XML_DIR / "next_key.xml"))
+        return mujoco.MjSpec.from_file(str(_GENERATED_XML_DIR / f"active_key_{i}.xml"))
     return EntityCfg(spec_fn=get_spec)
 
 def get_reach_goal_marker_entity_cfg() -> EntityCfg:

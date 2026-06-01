@@ -6,13 +6,13 @@ from math import pi, radians
 # =========================================================
 
 NUM_MASSPOINTS = 1
-NUM_UR10S = 1
+NUM_UR10S = 0
 
 # =========================================================
 # ACTIVE KEYS
 # =========================================================
 
-NUM_ACTIVE_KEYS = 1  # number of simultaneously active keys
+NUM_ACTIVE_KEYS = 3  # number of simultaneously active keys
 
 # =========================================================
 # KEYBOARD GEOMETRY

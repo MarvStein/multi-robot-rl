@@ -129,8 +129,9 @@ def make_type_env(play: bool = False) -> ManagerBasedRlEnvCfg:
     viewer = ViewerConfig(
         origin_type=ViewerConfig.OriginType.WORLD,
         lookat=type_constants.CENTER_POS,
-        distance=1.2,
-        elevation=-60.0
+        azimuth=90.0,
+        elevation=-23.8,
+        distance=1.479,
     ) if play else ViewerConfig()
 
     return ManagerBasedRlEnvCfg(

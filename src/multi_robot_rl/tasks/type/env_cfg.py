@@ -6,6 +6,7 @@ from mjlab.managers.reward_manager import RewardTermCfg
 from mjlab.managers.termination_manager import TerminationTermCfg
 from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.metrics_manager import MetricsTermCfg
+from mjlab.managers.curriculum_manager import CurriculumTermCfg
 from mjlab.terrains import TerrainEntityCfg
 from mjlab.scene import SceneCfg
 from mjlab.sim import SimulationCfg, MujocoCfg
@@ -23,6 +24,7 @@ from multi_robot_rl.assets.robots import masspoint, ur10
 # custom MDP imports and constants
 from multi_robot_rl.tasks.type import mdp as type_mdp
 from multi_robot_rl.common import mdp as common_mdp
+from multi_robot_rl.common import curriculum as common_curriculum
 import multi_robot_rl.configs.type_constants as type_constants
 
 
@@ -84,7 +86,7 @@ def make_type_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         ),
         "wrong_key_penalty": RewardTermCfg(
             func=type_mdp.wrong_key_penalty,
-            weight=-0.001,
+            weight=0.0,
         ),
         "action_rate_penalty": RewardTermCfg(
             func=mjlab_rewards.action_rate_l2,
@@ -129,6 +131,22 @@ def make_type_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         ),
     }
 
+    curriculum = {
+        "wrong_key_penalty_schedule": CurriculumTermCfg(
+            func=common_curriculum.metric_reward_curriculum,
+            params={
+                "reward_name": "wrong_key_penalty",
+                "metric_name": "throughput",
+                "alpha": 1e-4,
+                "stages": [
+                    {"metric_value": 0.0, "weight":  0.0},
+                    {"metric_value": 5.0, "weight": -0.1},
+                    {"metric_value": 8.0, "weight": -0.3},
+                ],
+            },
+        ),
+    }
+
     viewer = ViewerConfig(
         origin_type=ViewerConfig.OriginType.WORLD,
         lookat=type_constants.CENTER_POS,
@@ -146,6 +164,7 @@ def make_type_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         rewards=rewards,
         terminations=terminations,
         metrics=metrics,
+        curriculum=curriculum,
         sim=SimulationCfg(
             mujoco=MujocoCfg(timestep=0.01),
             njmax=300,

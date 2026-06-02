@@ -62,6 +62,14 @@ def get_ur10_base_poses(
 # =========================================================
 
 def _ur10_articulation() -> EntityArticulationInfoCfg:
+    """Return the articulation configuration for the UR10e with three BuiltinPositionActuator groups.
+
+    The three groups correspond to shoulder joints (pan + lift), elbow joint, and
+    wrist joints (wrist 1, 2, 3), each with tuned stiffness, damping, and effort limits.
+
+    Returns:
+        EntityArticulationInfoCfg with three BuiltinPositionActuatorCfg entries.
+    """
     return EntityArticulationInfoCfg(
         actuators=(
             BuiltinPositionActuatorCfg(
@@ -90,6 +98,16 @@ def _ur10_articulation() -> EntityArticulationInfoCfg:
 # =========================================================
 
 def _ur10_init_state(pos, rot) -> EntityCfg.InitialStateCfg:
+    """Return an InitialStateCfg placing the UR10 at pos/rot with joints set to the home pose.
+
+    Args:
+        pos: Base position as a (x, y, z) tuple.
+        rot: Base rotation as a (w, x, y, z) quaternion tuple.
+
+    Returns:
+        InitialStateCfg with pos, rot, all six joint positions set to UR10_HOME_JOINT_POS,
+        and all joint velocities zeroed.
+    """
     home = UR10_HOME_JOINT_POS
     return EntityCfg.InitialStateCfg(
         pos=pos,
@@ -143,17 +161,53 @@ def _assert_ur10_joint_limits_include_home_pose(joint_pos_limits: dict) -> None:
             lo, hi = joint_pos_limits[joint_name]
             assert lo <= home_pos <= hi, f"Joint '{joint_name}' home position {home_pos} is outside the provided limits ({lo}, {hi})."
 
-def get_ur10e_entity_cfg_for_type_task(pos, rot) -> EntityCfg:
+def get_ur10e_entity_cfg_for_type_task(pos: tuple[float, float, float], rot: tuple[float, float, float, float]) -> EntityCfg:
+    """Return an EntityCfg for the UR10e configured for the type task.
+
+    Asserts that the type-task joint position limits include the home pose before
+    constructing the entity configuration.
+
+    Args:
+        pos: Base position as a (x, y, z) tuple.
+        rot: Base rotation as a (w, x, y, z) quaternion tuple.
+
+    Returns:
+        EntityCfg with type-task joint position limits applied.
+    """
     from multi_robot_rl.configs import type_constants
     _assert_ur10_joint_limits_include_home_pose(type_constants.UR10_JOINT_POS_LIMITS)
     return _get_ur10e_entity_cfg(pos, rot, joint_pos_limits=type_constants.UR10_JOINT_POS_LIMITS)
 
-def get_ur10e_entity_cfg_for_reach_task(pos, rot) -> EntityCfg:
+def get_ur10e_entity_cfg_for_reach_task(pos: tuple[float, float, float], rot: tuple[float, float, float, float]) -> EntityCfg:
+    """Return an EntityCfg for the UR10e configured for the reach task.
+
+    Asserts that the reach-task joint position limits include the home pose before
+    constructing the entity configuration.
+
+    Args:
+        pos: Base position as a (x, y, z) tuple.
+        rot: Base rotation as a (w, x, y, z) quaternion tuple.
+
+    Returns:
+        EntityCfg with reach-task joint position limits applied.
+    """
     from multi_robot_rl.configs import reach_constants
     _assert_ur10_joint_limits_include_home_pose(reach_constants.UR10_JOINT_POS_LIMITS)
     return _get_ur10e_entity_cfg(pos, rot, joint_pos_limits=reach_constants.UR10_JOINT_POS_LIMITS)
 
-def get_ur10e_entity_cfg_for_push_task(pos, rot) -> EntityCfg:
+def get_ur10e_entity_cfg_for_push_task(pos: tuple[float, float, float], rot: tuple[float, float, float, float]) -> EntityCfg:
+    """Return an EntityCfg for the UR10e configured for the push task.
+
+    Asserts that the push-task joint position limits include the home pose before
+    constructing the entity configuration.
+
+    Args:
+        pos: Base position as a (x, y, z) tuple.
+        rot: Base rotation as a (w, x, y, z) quaternion tuple.
+
+    Returns:
+        EntityCfg with push-task joint position limits applied.
+    """
     from multi_robot_rl.configs import push_constants
     _assert_ur10_joint_limits_include_home_pose(push_constants.UR10_JOINT_POS_LIMITS)
     return _get_ur10e_entity_cfg(pos, rot, joint_pos_limits=push_constants.UR10_JOINT_POS_LIMITS)
@@ -214,6 +268,16 @@ def get_ur10_robot_config_type_task(
     pos: tuple[float, float, float],
     rot: tuple[float, float, float, float],
 ) -> RobotConfig:
+    """Return a RobotConfig for the UR10e in the type task.
+
+    Args:
+        name: Unique scene entity name for this UR10e instance.
+        pos: Base position as a (x, y, z) tuple.
+        rot: Base rotation as a (w, x, y, z) quaternion tuple.
+
+    Returns:
+        RobotConfig with type-task entity cfg and joint reset range.
+    """
     from multi_robot_rl.configs import type_constants
     return _get_ur10_robot_config(
         name,
@@ -227,6 +291,16 @@ def get_ur10_robot_config_reach_task(
     pos: tuple[float, float, float],
     rot: tuple[float, float, float, float],
 ) -> RobotConfig:
+    """Return a RobotConfig for the UR10e in the reach task.
+
+    Args:
+        name: Unique scene entity name for this UR10e instance.
+        pos: Base position as a (x, y, z) tuple.
+        rot: Base rotation as a (w, x, y, z) quaternion tuple.
+
+    Returns:
+        RobotConfig with reach-task entity cfg and joint reset range.
+    """
     from multi_robot_rl.configs import reach_constants
     return _get_ur10_robot_config(
         name,
@@ -240,6 +314,16 @@ def get_ur10_robot_config_push_task(
     pos: tuple[float, float, float],
     rot: tuple[float, float, float, float],
 ) -> RobotConfig:
+    """Return a RobotConfig for the UR10e in the push task.
+
+    Args:
+        name: Unique scene entity name for this UR10e instance.
+        pos: Base position as a (x, y, z) tuple.
+        rot: Base rotation as a (w, x, y, z) quaternion tuple.
+
+    Returns:
+        RobotConfig with push-task entity cfg and joint reset range.
+    """
     from multi_robot_rl.configs import push_constants
     return _get_ur10_robot_config(
         name,
@@ -257,7 +341,18 @@ def _reset_ur10_joints(
     joint_reset_range: tuple[float, float],
     asset_cfg: SceneEntityCfg,
 ) -> None:
-    """Reset UR10e joints to the home pose with small uniform noise on each joint."""
+    """Reset UR10e joints to the home pose with small uniform noise applied independently to each joint.
+
+    Args:
+        env: The managed RL environment containing the UR10e asset.
+        env_ids: Indices of environments to reset; defaults to all environments if None.
+        joint_reset_range: Symmetric uniform range (min, max) applied as additive noise to each joint's home position.
+        asset_cfg: SceneEntityCfg for the UR10e asset, providing joint id mapping.
+
+    Side Effects:
+        - Writes randomised joint positions (home + noise) and zeroed joint velocities
+          to the simulation for the specified environments.
+    """
     if env_ids is None:
         env_ids = torch.arange(env.num_envs, device=env.device, dtype=torch.int)
 

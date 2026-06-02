@@ -1,4 +1,6 @@
+"""Reward, observation, termination, metric, and reset functions for the multi-robot keyboard typing task."""
 import torch
+from typing import Any
 from mjlab.envs import ManagerBasedRlEnv
 
 import multi_robot_rl.configs.type_constants as type_constants
@@ -8,6 +10,17 @@ from multi_robot_rl.common.mdp import get_ee_positions
 
 
 def _init_type_state(env: ManagerBasedRlEnv) -> None:
+    """Initialize all typing-task state attributes on the environment if they are not yet present.
+
+    Args:
+        env: The managed RL environment to initialize.
+
+    Side Effects:
+        - Sets env.active_keys, env.newly_pressed_count, env.newly_wrong_count,
+          env._total_keys_pressed, env._final_throughput,
+          env._total_wrong_keys_pressed, env._final_wrong_keys_per_episode, and
+          env._prev_is_pressed as zero-valued tensors on the environment.
+    """
     if not hasattr(env, "active_keys"):
         env.active_keys = torch.zeros(
             (env.num_envs, type_constants.NUM_ACTIVE_KEYS), dtype=torch.long, device=env.device
@@ -27,8 +40,18 @@ def _init_type_state(env: ManagerBasedRlEnv) -> None:
 # OBSERVATIONS
 # =========================================================
 
-def keyboard_state_obs(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
-    """Key joint positions + active key 2D positions: (num_envs, TOTAL_KEYS + NUM_ACTIVE_KEYS*2)"""
+def keyboard_state_obs(env: ManagerBasedRlEnv, **kwargs: Any) -> torch.Tensor:
+    """Return the keyboard joint positions concatenated with the 2D grid positions of the active keys.
+
+    Args:
+        env: The managed RL environment.
+        **kwargs: Unused keyword arguments passed by the observation manager.
+
+    Returns:
+        Tensor of shape (num_envs, TOTAL_KEYS + NUM_ACTIVE_KEYS * 2) containing
+        the TOTAL_KEYS key joint positions followed by the flattened 2D (x, y)
+        positions of the NUM_ACTIVE_KEYS currently active keys.
+    """
     _init_type_state(env)
     qpos = env.scene["keyboard"].data.joint_pos[:, :type_constants.TOTAL_KEYS]
 
@@ -44,8 +67,20 @@ def keyboard_state_obs(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 # TERMINATIONS
 # =========================================================
 
-def out_of_bounds(env: ManagerBasedRlEnv, robots: list[RobotConfig], **kwargs) -> torch.Tensor:
-    """Terminate if any robot strays too far from the keyboard in XY or out of z-bounds."""
+def out_of_bounds(env: ManagerBasedRlEnv, robots: list[RobotConfig], **kwargs: Any) -> torch.Tensor:
+    """Return a per-environment bool indicating whether any robot end-effector is out of bounds.
+
+    An environment is flagged when any robot's end-effector exceeds the keyboard
+    footprint (plus OUT_OF_BOUNDS_MARGIN) in X or Y, or falls outside [EE_Z_MIN, EE_Z_MAX].
+
+    Args:
+        env: The managed RL environment.
+        robots: List of RobotConfig objects whose end-effector positions are checked.
+        **kwargs: Unused keyword arguments passed by the termination manager.
+
+    Returns:
+        Boolean tensor of shape (num_envs,); True where at least one robot is out of bounds.
+    """
     ee_positions = get_ee_positions(env, robots)  # (num_envs, num_robots, 3)
     out_x = torch.abs(ee_positions[:, :, 0] - type_constants.CENTER_POS[0]) > (type_constants.KEYBOARD_SIZE[0] + type_constants.OUT_OF_BOUNDS_MARGIN)
     out_y = torch.abs(ee_positions[:, :, 1] - type_constants.CENTER_POS[1]) > (type_constants.KEYBOARD_SIZE[1] + type_constants.OUT_OF_BOUNDS_MARGIN)
@@ -56,13 +91,35 @@ def out_of_bounds(env: ManagerBasedRlEnv, robots: list[RobotConfig], **kwargs) -
 # REWARDS
 # =========================================================
 
-def key_pressed_reward(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
-    """Sparse +1.0 per active key correctly pressed this step."""
+def key_pressed_reward(env: ManagerBasedRlEnv, **kwargs: Any) -> torch.Tensor:
+    """Return the count of active keys correctly pressed this step as a sparse reward signal.
+
+    The returned value is env.newly_pressed_count, which is populated each step
+    by update_keyboard_state.
+
+    Args:
+        env: The managed RL environment.
+        **kwargs: Unused keyword arguments passed by the reward manager.
+
+    Returns:
+        Float tensor of shape (num_envs,) with the number of correct key presses this step.
+    """
     _init_type_state(env)
     return env.newly_pressed_count
 
-def wrong_key_penalty(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
-    """Count of non-active keys newly pressed this step (rising-edge, matches wrong_keys_per_episode metric)."""
+def wrong_key_penalty(env: ManagerBasedRlEnv, **kwargs: Any) -> torch.Tensor:
+    """Return the rising-edge count of non-active keys pressed this step as a penalty signal.
+
+    Only new presses (rising-edge) are counted so that holding a wrong key down
+    does not accumulate further penalty. The value matches the wrong_keys_per_episode metric.
+
+    Args:
+        env: The managed RL environment.
+        **kwargs: Unused keyword arguments passed by the reward manager.
+
+    Returns:
+        Float tensor of shape (num_envs,) with the number of newly pressed wrong keys this step.
+    """
     _init_type_state(env)
     return env.newly_wrong_count
 
@@ -71,13 +128,37 @@ def wrong_key_penalty(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 # METRICS
 # =========================================================
 
-def throughput(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
-    """Total correctly pressed keys in the previous episode."""
+def throughput(env: ManagerBasedRlEnv, **kwargs: Any) -> torch.Tensor:
+    """Return the total number of correctly pressed keys recorded in the previous episode.
+
+    The value is snapped at episode end by reset_keyboard_state and stored in
+    env._final_throughput so that it is stable throughout the current episode.
+
+    Args:
+        env: The managed RL environment.
+        **kwargs: Unused keyword arguments passed by the metrics manager.
+
+    Returns:
+        Float tensor of shape (num_envs,) with the per-environment throughput
+        from the most recently completed episode.
+    """
     _init_type_state(env)
     return env._final_throughput
 
-def wrong_keys_per_episode(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
-    """Total wrong key presses in the previous episode."""
+def wrong_keys_per_episode(env: ManagerBasedRlEnv, **kwargs: Any) -> torch.Tensor:
+    """Return the total number of wrong key presses recorded in the previous episode.
+
+    The value is snapped at episode end by reset_keyboard_state and stored in
+    env._final_wrong_keys_per_episode so that it is stable throughout the current episode.
+
+    Args:
+        env: The managed RL environment.
+        **kwargs: Unused keyword arguments passed by the metrics manager.
+
+    Returns:
+        Float tensor of shape (num_envs,) with the per-environment wrong-key count
+        from the most recently completed episode.
+    """
     _init_type_state(env)
     return env._final_wrong_keys_per_episode
 
@@ -87,13 +168,39 @@ def wrong_keys_per_episode(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 # =========================================================
 
 def _sample_unique_active_keys(n: int, device: torch.device) -> torch.Tensor:
-    """Sample NUM_ACTIVE_KEYS unique key indices per env using topk of uniform noise."""
+    """Sample NUM_ACTIVE_KEYS unique key indices for each of n environments.
+
+    Uniqueness per environment is guaranteed by taking the top-k indices of
+    per-row uniform noise, so no key index appears twice in the same row.
+
+    Args:
+        n: Number of environments to sample for.
+        device: Torch device on which to allocate the result tensor.
+
+    Returns:
+        Long tensor of shape (n, NUM_ACTIVE_KEYS) containing unique key indices
+        drawn from [0, TOTAL_KEYS) for each environment.
+    """
     noise = torch.rand(n, type_constants.TOTAL_KEYS, device=device)
     _, indices = torch.topk(noise, type_constants.NUM_ACTIVE_KEYS, dim=1)
     return indices  # (n, NUM_ACTIVE_KEYS)
 
 
-def reset_keyboard_state(env: ManagerBasedRlEnv, env_ids, **kwargs) -> None:
+def reset_keyboard_state(env: ManagerBasedRlEnv, env_ids: torch.Tensor | None, **kwargs: Any) -> None:
+    """Snap final metrics, zero per-episode counters, and sample new active keys for reset environments.
+
+    Args:
+        env: The managed RL environment.
+        env_ids: Indices of environments being reset; defaults to all environments if None.
+        **kwargs: Unused keyword arguments passed by the event manager.
+
+    Side Effects:
+        - Copies env._total_keys_pressed into env._final_throughput for env_ids, then zeros it.
+        - Copies env._total_wrong_keys_pressed into env._final_wrong_keys_per_episode for env_ids, then zeros it.
+        - Zeros env.newly_pressed_count and env.newly_wrong_count for env_ids.
+        - Resets env._prev_is_pressed to False for env_ids.
+        - Samples new unique active keys into env.active_keys for env_ids.
+    """
     if env_ids is None:
         env_ids = torch.arange(env.num_envs, device=env.device)
 
@@ -110,7 +217,18 @@ def reset_keyboard_state(env: ManagerBasedRlEnv, env_ids, **kwargs) -> None:
 
 
 def _detect_key_presses(env: ManagerBasedRlEnv, env_ids: torch.Tensor):
-    """Returns (key_qpos, is_pressed) for the given env_ids."""
+    """Read keyboard joint positions and determine which keys are currently pressed.
+
+    A key is considered pressed when its joint position falls below KEY_PRESS_THRESHOLD.
+
+    Args:
+        env: The managed RL environment containing the keyboard scene entity.
+        env_ids: Indices of environments to query.
+
+    Returns:
+        key_qpos: Float tensor of shape (len(env_ids), TOTAL_KEYS) with joint positions.
+        is_pressed: Bool tensor of shape (len(env_ids), TOTAL_KEYS); True where a key is pressed.
+    """
     key_qpos = env.scene["keyboard"].data.joint_pos[env_ids, :type_constants.TOTAL_KEYS]
     is_pressed = key_qpos < type_constants.KEY_PRESS_THRESHOLD
     return key_qpos, is_pressed
@@ -122,16 +240,22 @@ def _evaluate_key_presses(
     is_pressed: torch.Tensor,
     prev_is_pressed: torch.Tensor,
 ) -> torch.Tensor:
-    """
-    Determines which active key slots are pressed and whether any wrong key is pressed.
+    """Determine which active key slots are pressed and count newly pressed wrong keys.
 
-    Side effects:
-    - Updates env.wrong_key_pressed for env_ids.
-    - Increments env._total_wrong_keys_pressed by the count of newly pressed wrong keys
-      (rising-edge only, so holding a wrong key down does not accumulate further).
+    Args:
+        env: The managed RL environment.
+        env_ids: Indices of environments to evaluate.
+        is_pressed: Bool tensor of shape (n, TOTAL_KEYS) indicating currently pressed keys.
+        prev_is_pressed: Bool tensor of shape (n, TOTAL_KEYS) indicating keys pressed in the previous step.
 
     Returns:
-        slot_pressed: (n, NUM_ACTIVE_KEYS) bool — which slots had their active key pressed.
+        slot_pressed: Bool tensor of shape (n, NUM_ACTIVE_KEYS); True where the active key
+        in that slot is currently pressed.
+
+    Side Effects:
+        - Sets env.newly_wrong_count[env_ids] to the rising-edge count of wrong key presses
+          (holding a wrong key down does not accumulate further).
+        - Increments env._total_wrong_keys_pressed[env_ids] by the same rising-edge count.
     """
     n = len(env_ids)
     active_keys_local = env.active_keys[env_ids]  # (n, NUM_ACTIVE_KEYS)
@@ -156,9 +280,21 @@ def _handle_successful_presses(
     env_ids: torch.Tensor,
     slot_pressed: torch.Tensor,
 ) -> None:
-    """
-    For each pressed slot: increments the press counter and replaces the key with a
-    new unique key (not already in the active set for that env).
+    """Increment press counters and replace each successfully pressed active key with a new unique key.
+
+    For each pressed slot the pressed key is replaced by a randomly sampled key
+    that is not already in the active set for that environment, preserving the
+    uniqueness invariant across slots within the same environment.
+
+    Args:
+        env: The managed RL environment.
+        env_ids: Indices of environments to update.
+        slot_pressed: Bool tensor of shape (n, NUM_ACTIVE_KEYS) indicating which slots were pressed.
+
+    Side Effects:
+        - Increments env._total_keys_pressed[env_ids] by the per-environment press count.
+        - Sets env.newly_pressed_count[env_ids] to the per-environment press count.
+        - Updates env.active_keys[env_ids] so that pressed slots contain new unique key indices.
     """
     if not slot_pressed.any():
         return
@@ -200,7 +336,17 @@ def _update_marker_poses(
     env_ids: torch.Tensor,
     key_qpos: torch.Tensor,
 ) -> None:
-    """Moves each active_key_i marker to the current position of its assigned key."""
+    """Move each active_key_i marker to the current 3-D position of its assigned key.
+
+    Args:
+        env: The managed RL environment containing the active_key_* scene entities.
+        env_ids: Indices of environments to update.
+        key_qpos: Float tensor of shape (len(env_ids), TOTAL_KEYS) with current key joint positions.
+
+    Side Effects:
+        - Writes mocap poses to the simulation for each active_key_i marker,
+          positioning it at the grid (x, y) of its assigned key plus the key's current z offset.
+    """
     n = len(env_ids)
     for slot_i in range(type_constants.NUM_ACTIVE_KEYS):
         key_idx = env.active_keys[env_ids, slot_i]  # (n,)
@@ -214,8 +360,22 @@ def _update_marker_poses(
         )
 
 
-def update_keyboard_state(env: ManagerBasedRlEnv, env_ids, **kwargs) -> None:
-    """Step event: detect presses, update state, replace pressed keys, move markers."""
+def update_keyboard_state(env: ManagerBasedRlEnv, env_ids: torch.Tensor | None, **kwargs: Any) -> None:
+    """Step event that advances the full keyboard state for the given environments.
+
+    Args:
+        env: The managed RL environment.
+        env_ids: Indices of environments to update; defaults to all environments if None.
+        **kwargs: Unused keyword arguments passed by the event manager.
+
+    Side Effects:
+        - Zeros env.newly_pressed_count and env.newly_wrong_count for env_ids.
+        - Calls _detect_key_presses to read current key positions.
+        - Updates env._prev_is_pressed with the current press state.
+        - Calls _evaluate_key_presses to compute slot_pressed and update wrong-key counts.
+        - Calls _handle_successful_presses to update total/newly pressed counts and active keys.
+        - Calls _update_marker_poses to reposition active key markers in the simulation.
+    """
     if env_ids is None:
         env_ids = torch.arange(env.num_envs, device=env.device)
 

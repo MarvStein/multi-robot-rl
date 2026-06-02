@@ -1,4 +1,7 @@
+"""Reward, observation, termination, metric, and reset functions for the multi-robot push task."""
+
 import torch
+from typing import Any
 from mjlab.envs import ManagerBasedRlEnv
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 
@@ -13,6 +16,19 @@ _MAX_SPAWN_TRIES = 30
 
 
 def _get_cuboid_joint_cfgs(env: ManagerBasedRlEnv) -> list[SceneEntityCfg]:
+    """Lazily create and cache resolved SceneEntityCfg objects for all cuboid joints.
+
+    Args:
+        env: The environment instance used to resolve scene entities.
+
+    Returns:
+        List of resolved SceneEntityCfg objects, one per cuboid, covering the
+        (cuboid_x, cuboid_y, cuboid_yaw) joints.
+
+    Side Effects:
+        - Sets ``env._cuboid_joint_cfgs`` on first call; subsequent calls return
+          the cached list without re-resolving.
+    """
     if not hasattr(env, "_cuboid_joint_cfgs"):
         cfgs = [
             SceneEntityCfg(f"cuboid_{i}", joint_names=("cuboid_x", "cuboid_y", "cuboid_yaw"))
@@ -25,6 +41,19 @@ def _get_cuboid_joint_cfgs(env: ManagerBasedRlEnv) -> list[SceneEntityCfg]:
 
 
 def _init_push_state(env: ManagerBasedRlEnv) -> None:
+    """Initialize push-task state tensors on the environment if not already present.
+
+    Args:
+        env: The environment instance on which state tensors are initialised.
+
+    Side Effects:
+        - Sets ``env.target_poses`` to a zero tensor of shape
+          (num_envs, NUM_CUBOIDS, 4) if absent.
+        - Sets ``env._target_satisfied_mask`` to a boolean zero tensor of shape
+          (num_envs, NUM_CUBOIDS) if absent.
+        - Sets ``env._final_target_reached_fraction`` to a zero tensor of shape
+          (num_envs,) if absent.
+    """
     if not hasattr(env, "_target_satisfied_mask"):
         env.target_poses = torch.zeros(
             (env.num_envs, push_constants.NUM_CUBOIDS, 4), device=env.device
@@ -40,7 +69,16 @@ def _init_push_state(env: ManagerBasedRlEnv) -> None:
 # =========================================================
 
 def cuboid_states_obs(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
-    """Returns (num_envs, num_cuboids * 5): [x, y, z, sin_yaw, cos_yaw] per cuboid in world frame."""
+    """Return the pose of every cuboid encoded as [x, y, z, sin_yaw, cos_yaw] in the world frame.
+
+    Args:
+        env: The environment instance providing scene data.
+        **kwargs: Unused; accepted for compatibility with the observation manager interface.
+
+    Returns:
+        Tensor of shape (num_envs, num_cuboids * 5) containing the flattened
+        per-cuboid pose features.
+    """
     cfgs = _get_cuboid_joint_cfgs(env)
     parts = []
     for cfg in cfgs:
@@ -53,7 +91,16 @@ def cuboid_states_obs(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
     return torch.cat(parts, dim=-1)
 
 def target_poses_obs(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
-    """Returns (num_envs, num_targets * 5): [x, y, z, sin_yaw, cos_yaw] per target."""
+    """Return every target pose encoded as [x, y, z, sin_yaw, cos_yaw].
+
+    Args:
+        env: The environment instance providing target pose state.
+        **kwargs: Unused; accepted for compatibility with the observation manager interface.
+
+    Returns:
+        Tensor of shape (num_envs, num_targets * 5) containing the flattened
+        per-target pose features.
+    """
     _init_push_state(env)
     poses = env.target_poses  # (num_envs, num_targets, 4): x, y, z, yaw
     x   = poses[:, :, 0:1]
@@ -64,7 +111,16 @@ def target_poses_obs(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
     return flat.flatten(start_dim=1)
 
 def target_satisfied_mask_obs(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
-    """Returns the target_satisfied_mask as float: (num_envs, NUM_CUBOIDS)"""
+    """Return the per-target satisfaction mask cast to float.
+
+    Args:
+        env: The environment instance providing target satisfaction state.
+        **kwargs: Unused; accepted for compatibility with the observation manager interface.
+
+    Returns:
+        Float tensor of shape (num_envs, NUM_CUBOIDS) where 1.0 means the
+        corresponding target has been satisfied and 0.0 means it has not.
+    """
     _init_push_state(env)
     return env._target_satisfied_mask.float()
 
@@ -74,7 +130,21 @@ def target_satisfied_mask_obs(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 # =========================================================
 
 def out_of_bounds(env: ManagerBasedRlEnv, robots: list[RobotConfig], **kwargs) -> torch.Tensor:
-    """Terminate if any robot's EE leaves the allowed workspace."""
+    """Return a mask indicating which environments have a robot end-effector outside the allowed workspace.
+
+    An end-effector is considered out of bounds when its XY distance from the
+    origin exceeds OUT_OF_BOUNDS_RADIUS, its height exceeds OUT_OF_BOUNDS_HEIGHT,
+    or its height drops below zero.
+
+    Args:
+        env: The environment instance providing scene and simulation state.
+        robots: List of robot configurations used to locate end-effector sites.
+        **kwargs: Unused; accepted for compatibility with termination/reward manager interfaces.
+
+    Returns:
+        Boolean tensor of shape (num_envs,) that is True for every environment
+        in which at least one robot's end-effector violates the workspace bounds.
+    """
     ee_positions = get_ee_positions(env, robots)  # (num_envs, num_robots, 3)
     r = torch.norm(ee_positions[:, :, :2], dim=-1)
     z = ee_positions[:, :, 2]
@@ -82,7 +152,16 @@ def out_of_bounds(env: ManagerBasedRlEnv, robots: list[RobotConfig], **kwargs) -
     return out_mask.any(dim=1)
 
 def all_targets_reached(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
-    """Return a tensor indicating in which envs all targets have been satisfied."""
+    """Return a mask indicating which environments have all push targets satisfied.
+
+    Args:
+        env: The environment instance providing target satisfaction state.
+        **kwargs: Unused; accepted for compatibility with the termination manager interface.
+
+    Returns:
+        Boolean tensor of shape (num_envs,) that is True for every environment
+        in which every target in ``_target_satisfied_mask`` is True.
+    """
     _init_push_state(env)
     return env._target_satisfied_mask.all(dim=1)
 
@@ -92,10 +171,24 @@ def all_targets_reached(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 # =========================================================
 
 def cuboid_placed_reward(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
-    """
-    Sparse one-time reward of 1/NUM_CUBOIDS when any cuboid is placed at a target pose, where "placed" means
-    within both POSITION_THRESHOLD (XY) and YAW_THRESHOLD. Any cuboid can satisfy any target.
-    Total reward = 1.0 when all targets are satisfied.
+    """Return a sparse one-time reward for each newly satisfied push target.
+
+    A target is considered satisfied when any cuboid is within POSITION_THRESHOLD
+    (XY distance) and YAW_THRESHOLD (angular distance) of it.  Each newly satisfied
+    target contributes 1/NUM_CUBOIDS to the reward, so the total reward reaches 1.0
+    when all targets are satisfied.  Any cuboid can satisfy any target.
+
+    Args:
+        env: The environment instance providing scene and push-task state.
+        **kwargs: Unused; accepted for compatibility with the reward manager interface.
+
+    Returns:
+        Float tensor of shape (num_envs,) with the per-environment reward for
+        targets newly satisfied on the current step.
+
+    Side Effects:
+        - Updates ``env._target_satisfied_mask`` in-place by OR-ing in any targets
+          newly satisfied on this step.
     """
     _init_push_state(env)
 
@@ -116,7 +209,6 @@ def cuboid_placed_reward(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
     pos_dists = torch.cdist(cuboid_xy, target_xy)
 
     # Angular differences: (num_envs, num_cuboids, num_targets)
-    # TODO: double check angular distance calculation
     d_yaw = cuboid_yaw.unsqueeze(2) - target_yaw.unsqueeze(1)
     ang_dists = torch.abs((d_yaw + torch.pi) % (2 * torch.pi) - torch.pi)
 
@@ -137,7 +229,19 @@ def cuboid_placed_reward(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 # =========================================================
 
 def targets_reached_fraction(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
-    """Returns the fraction of targets satisfied at the end of the previous episode."""
+    """Return the fraction of targets that were satisfied at the end of the previous episode.
+
+    The value is frozen at episode end by ``reset_cuboids_and_targets`` and held
+    constant until the next reset, making it suitable for use as a curriculum metric.
+
+    Args:
+        env: The environment instance providing push-task state.
+        **kwargs: Unused; accepted for compatibility with the metrics manager interface.
+
+    Returns:
+        Float tensor of shape (num_envs,) with values in [0, 1] representing the
+        per-environment fraction of targets satisfied in the episode that just ended.
+    """
     _init_push_state(env)
     return env._final_target_reached_fraction
 
@@ -147,13 +251,12 @@ def targets_reached_fraction(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 
 def reset_cuboids_and_targets(
     env: ManagerBasedRlEnv,
-    env_ids,
+    env_ids: torch.Tensor | None,
     play: bool = False,
     cuboid_distance_fraction: float = 1.0,
-    **kwargs,
+    **kwargs: Any,
 ) -> None:
-    """
-    Reset cuboid positions/yaw and target poses for the given env_ids.
+    """Reset cuboid positions/yaw and target poses for the given environments.
 
     Targets are always sampled uniformly over the full workspace (TARGET_SPAWN_RADIUS),
     with pairwise rejection to keep targets at least TARGET_MIN_SEPARATION apart
@@ -167,11 +270,23 @@ def reset_cuboids_and_targets(
     cuboid can satisfy any target.
 
     Args:
-        env: the environment instance
-        env_ids: the indices of the environments to reset
-        play: when True, overrides cuboid_distance_fraction to 1.0 to disable curriculum
-        cuboid_distance_fraction: float in [0, 1], controls the maximum initial
-            cuboid-to-target distance as a fraction of the workspace diameter
+        env: The environment instance to reset.
+        env_ids: Indices of the environments to reset.
+        play: When True, overrides ``cuboid_distance_fraction`` to 1.0 to disable
+            curriculum constraints during interactive play.
+        cuboid_distance_fraction: Value in [0, 1] controlling the maximum initial
+            cuboid-to-target distance as a fraction of the workspace diameter.
+        **kwargs: Unused; accepted for compatibility with the event manager interface.
+
+    Side Effects:
+        - Snapshots ``env._target_satisfied_mask`` into ``env._final_target_reached_fraction``
+          for the reset environments before clearing the mask.
+        - Clears ``env._target_satisfied_mask`` to False for all reset environments.
+        - Writes sampled target poses into ``env.target_poses`` for the reset environments.
+        - Writes mocap poses for all push-target markers to the simulation via
+          ``write_mocap_pose_to_sim``.
+        - Writes joint positions and velocities for all cuboids to the simulation via
+          ``write_joint_state_to_sim``.
     """
     if env_ids is None:
         env_ids = torch.arange(env.num_envs, device=env.device)

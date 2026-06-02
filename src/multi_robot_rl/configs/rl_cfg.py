@@ -1,4 +1,4 @@
-"""RL runner configurations."""
+"""Factory functions that return mjlab RL runner configurations for PPO and FastSAC."""
 from mjlab.rl import (
   RslRlFastSacAlgorithmCfg,
   RslRlFastSacRunnerCfg,
@@ -8,7 +8,7 @@ from mjlab.rl import (
 )
 
 def ppo_runner_cfg_default() -> RslRlOnPolicyRunnerCfg:
-    """Default runner configuration for PPO"""
+    """Return the default PPO runner configuration shared by all tasks."""
     return RslRlOnPolicyRunnerCfg(
         num_steps_per_env=24,
         max_iterations=200,
@@ -44,28 +44,28 @@ def ppo_runner_cfg_default() -> RslRlOnPolicyRunnerCfg:
     )
 
 def ppo_runner_cfg_reach_task() -> RslRlOnPolicyRunnerCfg:
-    """Runner configuration for PPO in the reach task."""
+    """Return the PPO runner configuration for the reach task."""
     cfg = ppo_runner_cfg_default()
     cfg.experiment_name = "reach_task"
     cfg.max_iterations = 1 + 25_000 # total env steps = max_iterations * num_steps_per_env * num_envs = 25_000 * 24 * 2048
     return cfg
 
 def ppo_runner_cfg_type_task() -> RslRlOnPolicyRunnerCfg:
-    """Runner configuration for PPO in the type task."""
+    """Return the PPO runner configuration for the type task."""
     cfg = ppo_runner_cfg_default()
     cfg.experiment_name = "type_task"
     cfg.max_iterations = 1 + 25_000 # total env steps = max_iterations * num_steps_per_env * num_envs = 25_000 * 24 * 2048
     return cfg
 
 def ppo_runner_cfg_push_task() -> RslRlOnPolicyRunnerCfg:
-    """Runner configuration for PPO in the push task."""
+    """Return the PPO runner configuration for the push task."""
     cfg = ppo_runner_cfg_default()
     cfg.experiment_name = "push_task"
     cfg.max_iterations = 1 + 25_000 # total env steps = max_iterations * num_steps_per_env * num_envs = 25_000 * 24 * 2048
     return cfg
 
 def fast_sac_runner_cfg_reach_task() -> RslRlFastSacRunnerCfg:
-    """Runner configuration for FastSAC in the reach task."""
+    """Return the FastSAC runner configuration for the reach task."""
     return RslRlFastSacRunnerCfg(
         experiment_name="reach_task",
         max_iterations=1+600_000, # 24 times larger than PPO to get equal total env steps

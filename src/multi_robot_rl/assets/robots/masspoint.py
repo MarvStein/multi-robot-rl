@@ -26,6 +26,11 @@ _MP_JOINT_NAMES = ("mp_x", "mp_y", "mp_z")
 # =========================================================
 
 def _masspoint_articulation() -> EntityArticulationInfoCfg:
+    """Return the articulation configuration that wires all three XmlActuators for mp_x, mp_y, and mp_z.
+
+    Returns:
+        EntityArticulationInfoCfg with a single XmlActuatorCfg targeting the mp_x, mp_y, and mp_z joints.
+    """
     return EntityArticulationInfoCfg(
         actuators=(XmlActuatorCfg(target_names_expr=_MP_JOINT_NAMES),),
     )
@@ -52,12 +57,27 @@ def _get_masspoint_entity_cfg(xml_filename: str, init_z: float) -> EntityCfg:
     )
 
 def get_masspoint_entity_cfg_for_type_task() -> EntityCfg:
+    """Return an EntityCfg for the masspoint configured for the type task.
+
+    Returns:
+        EntityCfg loading masspoint_type_task.xml with type-task joint ranges and initial state.
+    """
     return _get_masspoint_entity_cfg("masspoint_type_task.xml", type_constants.MP_Z_RANGE[1])
 
 def get_masspoint_entity_cfg_for_reach_task() -> EntityCfg:
+    """Return an EntityCfg for the masspoint configured for the reach task.
+
+    Returns:
+        EntityCfg loading masspoint_reach_task.xml with reach-task joint ranges and initial state.
+    """
     return _get_masspoint_entity_cfg("masspoint_reach_task.xml", reach_constants.MP_Z_RANGE[1])
 
 def get_masspoint_entity_cfg_for_push_task() -> EntityCfg:
+    """Return an EntityCfg for the masspoint configured for the push task.
+
+    Returns:
+        EntityCfg loading masspoint_push_task.xml with push-task joint ranges and initial state.
+    """
     return _get_masspoint_entity_cfg("masspoint_push_task.xml", push_constants.MP_Z_RANGE[1])
 
 # =========================================================
@@ -150,6 +170,14 @@ def _get_masspoint_robot_config(
 
 
 def get_masspoint_robot_config_type_task(name: str) -> RobotConfig:
+    """Return a RobotConfig for the masspoint in the type task.
+
+    Args:
+        name: Unique scene entity name for this masspoint instance.
+
+    Returns:
+        RobotConfig with type-task entity cfg and rectangular position reset ranges.
+    """
     return _get_masspoint_robot_config(
         name,
         entity_cfg=get_masspoint_entity_cfg_for_type_task(),
@@ -159,6 +187,14 @@ def get_masspoint_robot_config_type_task(name: str) -> RobotConfig:
 
 
 def get_masspoint_robot_config_reach_task(name: str) -> RobotConfig:
+    """Return a RobotConfig for the masspoint in the reach task.
+
+    Args:
+        name: Unique scene entity name for this masspoint instance.
+
+    Returns:
+        RobotConfig with reach-task entity cfg and cylindrical spawn reset distribution.
+    """
     return _get_masspoint_robot_config(
         name,
         entity_cfg=get_masspoint_entity_cfg_for_reach_task(),
@@ -170,6 +206,14 @@ def get_masspoint_robot_config_reach_task(name: str) -> RobotConfig:
 
 
 def get_masspoint_robot_config_push_task(name: str) -> RobotConfig:
+    """Return a RobotConfig for the masspoint in the push task.
+
+    Args:
+        name: Unique scene entity name for this masspoint instance.
+
+    Returns:
+        RobotConfig with push-task entity cfg and a fixed-height cylindrical spawn reset distribution.
+    """
     return _get_masspoint_robot_config(
         name,
         entity_cfg=get_masspoint_entity_cfg_for_push_task(),

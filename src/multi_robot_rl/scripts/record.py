@@ -31,6 +31,13 @@ class _NamedVideoRecorder(VideoRecorder):
     """VideoRecorder that saves as `<name_prefix>.mp4` without a step/episode suffix."""
 
     def _start_recording(self) -> None:
+        """Start a new recording session, using only the name prefix as the filename.
+
+        Side Effects:
+            - Sets self.is_recording to True.
+            - Resets self.current_video_frames to an empty list.
+            - Sets self.current_video_path to {video_folder}/{name_prefix}.mp4 (no step suffix).
+        """
         self.is_recording = True
         self.current_video_frames = []
         self.current_video_path = self.video_folder / f"{self.name_prefix}.mp4"
@@ -50,6 +57,16 @@ class RecordConfig:
 
 
 def run_record(task_id: str, cfg: RecordConfig) -> None:
+    """Load a trained agent checkpoint and run headless inference, saving the result to an MP4 file.
+
+    Args:
+        task_id: Registered task identifier used to look up env and RL configs.
+        cfg: RecordConfig specifying checkpoint path, video length, and optional overrides.
+
+    Side Effects:
+        - Creates a videos/ subdirectory inside the checkpoint's log directory.
+        - Writes a {checkpoint_stem}.mp4 file to that videos/ directory.
+    """
     configure_torch_backends()
 
     device = cfg.device or ("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -96,6 +113,11 @@ def run_record(task_id: str, cfg: RecordConfig) -> None:
 
 
 def main():
+    """CLI entry point: parse task id and RecordConfig from argv, then run recording.
+
+    Side Effects:
+        - Calls run_record, which creates a videos/ subdirectory and writes an MP4 file to disk.
+    """
     import mjlab.tasks  # noqa: F401
     import multi_robot_rl.tasks  # noqa: F401
 

@@ -29,14 +29,15 @@ import multi_robot_rl.configs.push_constants as push_constants
 
 
 def make_push_env(play: bool = False) -> ManagerBasedRlEnvCfg:
-    """
-    Factory for the push task environment.
+    """Build and return the configuration for the push task environment.
 
     Args:
-        play: Single-env interactive mode when True.
+        play: When True, creates a single-environment interactive setup with
+            curriculum constraints disabled and an adjusted viewer.
 
     Returns:
-        ManagerBasedRlEnvCfg: The configuration for the push task environment.
+        Fully populated ManagerBasedRlEnvCfg covering scene, observations,
+        actions, rewards, terminations, events, metrics, and curriculum.
     """
     # UR10 base positions and rotations equally spaced around a circle, facing inward
     _ur10_poses = ur10.get_ur10_base_poses(push_constants.NUM_UR10S)

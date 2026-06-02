@@ -1,3 +1,4 @@
+"""Generate MuJoCo XML assets for all tasks from Jinja2 templates and task constants, writing files to assets/generated/."""
 import os
 import sys
 from pathlib import Path
@@ -15,9 +16,10 @@ GENERATED_XML_DIR = ASSETS_DIR / "generated" # directory to store generated XML 
 GENERATED_XML_DIR.mkdir(parents=True, exist_ok=True)
 
 def _generate_keyboard_xml():
-    """
-    Generates the keyboard XML file based on constants defined in type_constants.py.
-    and the jinja template. The generated XML is saved to assets/generated/keyboard.xml.
+    """Generate the keyboard XML from the keyboard Jinja2 template using type_constants.
+
+    Side Effects:
+        - Writes the rendered XML to assets/generated/keyboard.xml.
     """
     env = Environment(loader=FileSystemLoader(str(ASSETS_DIR)))
     template = env.get_template("keyboard.xml.jinja")
@@ -52,13 +54,15 @@ def _generate_keyboard_xml():
         f.write(xml_str)
 
 def _generate_marker_xml(name: str, rgba: tuple, marker_size: float):
-    """
-    Generates a marker XML file based on the jinja template.
-    The generated XML is saved to assets/generated/keyboard.xml.
+    """Generate a marker XML file from the marker Jinja2 template.
+
     Args:
-        name: Name of the marker (e.g., "active_key" or "next_key")
-        rgba: RGBA color tuple for the marker (e.g., (0.2, 0.8, 0.2, 0.5))
-        marker_size: Size of the marker
+        name: Name of the marker (e.g., "active_key_0"); also used as the output filename stem.
+        rgba: RGBA color tuple for the marker (e.g., (0.2, 0.8, 0.2, 0.5)).
+        marker_size: Size of the marker sphere.
+
+    Side Effects:
+        - Writes the rendered XML to assets/generated/{name}.xml.
     """
     env = Environment(loader=FileSystemLoader(str(ASSETS_DIR)))
     template = env.get_template("marker.xml.jinja")
@@ -126,9 +130,14 @@ def _generate_masspoint_xml(suffix: str,
         f.write(xml_str)
 
 def _generate_everything_for_type_task():
-    """
-    Generates the XML files for the active key markers, the keyboard XML and the masspoint XML,
-    based on the values in type_constants.py. Note that there may be multiple masspoints which share the same XML.
+    """Generate all XML assets required by the type task from type_constants.py.
+
+    Note that there may be multiple masspoints which all share the same generated XML.
+
+    Side Effects:
+        - Writes assets/generated/keyboard.xml.
+        - Writes assets/generated/active_key_{i}.xml for each active key slot.
+        - Writes assets/generated/masspoint_type_task.xml.
     """
     _generate_keyboard_xml()
     for i in range(type_constants.NUM_ACTIVE_KEYS):
@@ -147,6 +156,11 @@ def _generate_everything_for_type_task():
     )
 
 def _generate_reach_goal_marker_xml():
+    """Generate the reach goal sphere marker XML from the reach_goal Jinja2 template.
+
+    Side Effects:
+        - Writes the rendered XML to assets/generated/reach_goal.xml.
+    """
     env = Environment(loader=FileSystemLoader(str(ASSETS_DIR)))
     template = env.get_template("reach_goal.xml.jinja")
     context = {
@@ -159,7 +173,12 @@ def _generate_reach_goal_marker_xml():
         f.write(xml_str)
 
 def _generate_everything_for_reach_task():
-    """Generates the masspoint XML and goal marker for the reach task."""
+    """Generate all XML assets required by the reach task from reach_constants.py.
+
+    Side Effects:
+        - Writes assets/generated/masspoint_reach_task.xml.
+        - Writes assets/generated/reach_goal.xml.
+    """
     _generate_masspoint_xml(
         "reach_task",
         radius=reach_constants.MP_RADIUS,
@@ -175,7 +194,11 @@ def _generate_everything_for_reach_task():
     _generate_reach_goal_marker_xml()
 
 def _generate_cuboid_xml():
-    """Generates the passive 3DOF cuboid XML (x, y, yaw joints) for the push task."""
+    """Generate the passive 3-DOF cuboid XML (x, y, yaw joints) for the push task.
+
+    Side Effects:
+        - Writes the rendered XML to assets/generated/cuboid.xml.
+    """
     env = Environment(loader=FileSystemLoader(str(ASSETS_DIR)))
     template = env.get_template("cuboid.xml.jinja")
 
@@ -201,6 +224,11 @@ def _generate_cuboid_xml():
 
 
 def _generate_push_target_marker_xml():
+    """Generate the push target marker XML from the push_target Jinja2 template.
+
+    Side Effects:
+        - Writes the rendered XML to assets/generated/push_target.xml.
+    """
     env = Environment(loader=FileSystemLoader(str(ASSETS_DIR)))
     template = env.get_template("push_target.xml.jinja")
     context = {
@@ -215,7 +243,13 @@ def _generate_push_target_marker_xml():
         f.write(xml_str)
 
 def _generate_everything_for_push_task():
-    """Generates the cuboid XML, push target marker, and push masspoint XML."""
+    """Generate all XML assets required by the push task from push_constants.py.
+
+    Side Effects:
+        - Writes assets/generated/cuboid.xml.
+        - Writes assets/generated/push_target.xml.
+        - Writes assets/generated/masspoint_push_task.xml.
+    """
     _generate_cuboid_xml()
     _generate_push_target_marker_xml()
     _generate_masspoint_xml(
@@ -233,9 +267,12 @@ def _generate_everything_for_push_task():
 
 
 def generate_all():
-    """
-    This function generates/updates all necessary XML files for the keyboard task and updates the documentation.
-    NOTE: The deployed documentations only capture the state of the main branch. To view the most-recent docs, run `uv run mkdocs serve`.
+    """Generate all XML assets for every task (type, reach, and push).
+
+    Side Effects:
+        - Writes all XML files under assets/generated/ by delegating to
+          _generate_everything_for_type_task, _generate_everything_for_reach_task,
+          and _generate_everything_for_push_task.
     """
     _generate_everything_for_type_task()
     _generate_everything_for_reach_task()

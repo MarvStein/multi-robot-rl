@@ -27,6 +27,14 @@ VARIANTS = [
 # ---------------------------------------------------------------------------
 
 class TypeBenchmark(BenchmarkRunner):
+    """Benchmark runner for the type (keyboard) task.
+
+    Trains PPO across two robot count variants on a fixed 6x3 keyboard layout
+    with 3 active keys: one masspoint and three masspoints.  Each run patches
+    ``type_constants.py`` in-place to activate the selected variant before
+    launching the training process.
+    """
+
     task_name = "type"
     constants_file = REPO_ROOT / "src" / "multi_robot_rl" / "configs" / "type_constants.py"
     patch_targets = {
@@ -38,6 +46,22 @@ class TypeBenchmark(BenchmarkRunner):
     }
 
     def _variant_label(self, algo_name: str, variant: dict) -> str:
+        """Build a human-readable run label from the algorithm name and variant config.
+
+        Encodes the robot composition, keyboard grid dimensions, and active key
+        count into a compact string used as a directory/experiment name.
+        Example outputs: ``"ppo_1mp_6x3kb_3ak"``, ``"ppo_3mp_6x3kb_3ak"``.
+
+        Args:
+            algo_name: Short algorithm identifier (e.g. ``"ppo"``).
+            variant: Mapping of constant names to their values for this run;
+                expected keys are ``NUM_MASSPOINTS``, ``NUM_UR10S``,
+                ``NUM_ACTIVE_KEYS``, ``NUM_COLS``, and ``NUM_ROWS``.
+
+        Returns:
+            Underscore-joined label string encoding the algorithm, robot counts,
+            keyboard grid size, and active key count.
+        """
         parts = [algo_name]
         if variant.get("NUM_MASSPOINTS", 0) > 0:
             parts.append(f"{variant['NUM_MASSPOINTS']}mp")

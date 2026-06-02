@@ -19,12 +19,16 @@ REPO_ROOT = Path(__file__).parent.parent.resolve()
 
 @dataclass
 class AlgorithmSpec:
+    """Algorithm identity pairing a short display label with a registered task id."""
+
     name: str     # short label, e.g. "ppo", "fast-sac"
     task_id: str  # registered task id, e.g. "reach", "reach-fast-sac"
 
 
 @dataclass
 class RunResult:
+    """Outcome record for a single (algorithm, variant) training run."""
+
     label: str
     algorithm: str
     variant: dict
@@ -40,6 +44,12 @@ _interrupted: bool = False
 
 
 def _sigint_handler(signum, frame) -> None:
+    """Handle SIGINT (Ctrl+C) by setting the interrupted flag and terminating the current subprocess.
+
+    Side Effects:
+        - Sets the module-level `_interrupted` flag to True.
+        - Sends SIGTERM to the process group of `_current_proc` if one is running.
+    """
     global _interrupted
     _interrupted = True
     print("\n[benchmark] Ctrl+C — stopping current run, will archive results.")
@@ -51,6 +61,11 @@ def _sigint_handler(signum, frame) -> None:
 
 
 def _git_commit() -> str:
+    """Return the current HEAD commit SHA, or 'unknown' if the lookup fails.
+
+    Returns:
+        The full 40-character SHA of the current HEAD, or the string "unknown".
+    """
     try:
         return subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, text=True
@@ -60,6 +75,14 @@ def _git_commit() -> str:
 
 
 def _status_str(r: RunResult) -> str:
+    """Format a RunResult into a human-readable status string.
+
+    Args:
+        r: The run result to describe.
+
+    Returns:
+        One of "INTERRUPTED", "TIMEOUT", "FAIL (exit <code>)", or "OK".
+    """
     if r.interrupted:
         return "INTERRUPTED"
     if r.timed_out:
@@ -97,6 +120,7 @@ class BenchmarkRunner(ABC):
 
     @property
     def logs_dir(self) -> Path:
+        """Absolute path to the rsl_rl log directory for this task."""
         return REPO_ROOT / "logs" / "rsl_rl" / f"{self.task_name}_task"
 
     # ------------------------------------------------------------------
@@ -120,7 +144,18 @@ class BenchmarkRunner(ABC):
     # ------------------------------------------------------------------
 
     def _patch_constants(self, variant: dict) -> str:
-        """Write variant values into constants_file. Returns original text."""
+        """Substitute variant field values into constants_file and return the original text.
+
+        Args:
+            variant: Mapping of constant field names to the values to write.
+
+        Returns:
+            The unmodified original contents of constants_file, suitable for
+            passing to `_restore_constants`.
+
+        Side Effects:
+            - Overwrites constants_file on disk with the patched content.
+        """
         original = self.constants_file.read_text()
         patched = original
         for field, value in variant.items():
@@ -135,6 +170,14 @@ class BenchmarkRunner(ABC):
         return original
 
     def _restore_constants(self, original: str) -> None:
+        """Restore constants_file to its original contents.
+
+        Args:
+            original: The text previously returned by `_patch_constants`.
+
+        Side Effects:
+            - Overwrites constants_file on disk with the original content.
+        """
         self.constants_file.write_text(original)
 
     # ------------------------------------------------------------------
@@ -142,12 +185,25 @@ class BenchmarkRunner(ABC):
     # ------------------------------------------------------------------
 
     def _snapshot_subdirs(self) -> set[str]:
+        """Return the names of all subdirectories currently present in logs_dir.
+
+        Returns:
+            A set of directory name strings, or an empty set if logs_dir does not exist.
+        """
         if not self.logs_dir.exists():
             return set()
         return {d.name for d in self.logs_dir.iterdir() if d.is_dir()}
 
     def _latest_checkpoint(self, run_dir: Path) -> Path | None:
-        """Return the highest-numbered model_*.pt in run_dir."""
+        """Return the highest-numbered model_*.pt checkpoint file in run_dir.
+
+        Args:
+            run_dir: Directory to search for checkpoint files.
+
+        Returns:
+            Path to the checkpoint with the largest step number, or None if
+            no model_*.pt files are found.
+        """
         pts = list(run_dir.glob("model_*.pt"))
         if not pts:
             return None
@@ -159,6 +215,18 @@ class BenchmarkRunner(ABC):
         return max(pts, key=_step)
 
     def _record_videos(self, algo: AlgorithmSpec, label: str, before: set[str]) -> None:
+        """Record evaluation videos for all new run directories produced by a training run.
+
+        Args:
+            algo: The algorithm whose task_id is used to invoke the `record` command.
+            label: Run label used to identify which new directories belong to this run.
+            before: Snapshot of subdirectory names that existed before the run started,
+                used to isolate newly created directories.
+
+        Side Effects:
+            - Launches a `uv run record` subprocess per new run directory.
+            - Writes video files into each run directory's videos/ subfolder.
+        """
         if not self.logs_dir.exists():
             return
         new_dirs = [
@@ -184,6 +252,19 @@ class BenchmarkRunner(ABC):
                 print(f"[benchmark] Video recording failed for {run_dir.name}: {exc}")
 
     def _stage_logs(self, label: str, staging: Path, before: set[str]) -> None:
+        """Move new log directories for a completed run into the staging area.
+
+        Args:
+            label: Run label used to identify which new directories belong to this run.
+            staging: Destination parent directory under which a label-named subdirectory
+                is created to hold the moved logs.
+            before: Snapshot of subdirectory names that existed before the run started,
+                used to isolate newly created directories.
+
+        Side Effects:
+            - Creates a subdirectory under staging on disk.
+            - Moves matching new directories from logs_dir into staging/label/.
+        """
         if not self.logs_dir.exists():
             print(f"[benchmark] No logs found for {label}.")
             return
@@ -212,6 +293,28 @@ class BenchmarkRunner(ABC):
         wandb_project: str,
         staging: Path,
     ) -> RunResult:
+        """Execute one (algorithm, variant) training run and return its outcome.
+
+        Patches constants_file with the variant values before launching the
+        training process, then restores the original file and stages logs
+        regardless of how the run terminates.
+
+        Args:
+            algo: Algorithm to train, providing the task_id for the `train` command.
+            variant: Constant overrides to apply for this run.
+            timeout_s: Maximum wall-clock seconds to allow the training process to run.
+            wandb_project: W&B project name passed to the training command.
+            staging: Directory into which completed run logs are moved.
+
+        Returns:
+            A RunResult capturing the label, exit code, wall time, and any error.
+
+        Side Effects:
+            - Patches and restores constants_file on disk.
+            - Sets the module-level `_current_proc` to the training subprocess while running.
+            - Launches a `uv run train` subprocess.
+            - Calls `_record_videos` and `_stage_logs`, which write and move files on disk.
+        """
         global _current_proc
         label = self._variant_label(algo.name, variant)
         tags = f"('{self.task_name}-sweep','{label}')"
@@ -288,6 +391,18 @@ class BenchmarkRunner(ABC):
         results: list[RunResult],
         timeout_s: int,
     ) -> None:
+        """Write a gzipped tar archive of the staging directory and a metadata JSON file.
+
+        Args:
+            staging: Directory containing all staged run logs to archive.
+            sweep_ts: Timestamp string (YYYY-MM-DD_HH-MM-SS) recorded in metadata.
+            results: List of RunResult objects for all completed runs.
+            timeout_s: Per-run timeout that was in effect, recorded in metadata.
+
+        Side Effects:
+            - Writes metadata.json into the staging directory on disk.
+            - Creates a .tar.gz archive at logs/<staging.name>.tar.gz on disk.
+        """
         archive_path = REPO_ROOT / "logs" / f"{staging.name}.tar.gz"
         metadata = {
             "sweep_name": staging.name,
@@ -312,6 +427,24 @@ class BenchmarkRunner(ABC):
         variants: list[dict],
         timeout_s: int,
     ) -> None:
+        """Execute the full benchmark sweep over all algorithm/variant combinations.
+
+        Iterates over every (algorithm, variant) pair in order, runs each training
+        job, then archives all staged logs. The sweep stops early if the user
+        interrupts with Ctrl+C; already-completed runs are still archived.
+
+        Args:
+            algorithms: Ordered list of algorithms to benchmark.
+            variants: Ordered list of hyperparameter variant dicts to apply per algorithm.
+            timeout_s: Maximum wall-clock seconds allowed per individual training run.
+
+        Side Effects:
+            - Installs a SIGINT handler (restores after sweep).
+            - Creates a timestamped staging directory under logs/rsl_rl/ on disk.
+            - Calls `_run_one` for each pair, which patches files and launches subprocesses.
+            - Calls `_archive`, which writes the final .tar.gz to disk.
+            - Exits the process via sys.exit if constants_file is missing.
+        """
         if not self.constants_file.exists():
             sys.exit(f"ERROR: constants file not found: {self.constants_file}")
 

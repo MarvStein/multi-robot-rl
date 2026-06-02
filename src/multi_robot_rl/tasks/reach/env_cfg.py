@@ -26,14 +26,15 @@ import multi_robot_rl.configs.reach_constants as reach_constants
 
 
 def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
-    """
-    Factory for the reach task environment.
+    """Build and return the full configuration for the reach task environment.
 
     Args:
-        play: Single-env interactive mode when True.
+        play: When True, creates a single-environment interactive configuration
+            with curriculum disabled and a fixed viewer perspective.
 
     Returns:
-        ManagerBasedRlEnvCfg: The configuration for the reach task environment.
+        Fully populated ManagerBasedRlEnvCfg covering scene, observations, actions,
+        rewards, terminations, events, metrics, and curriculum for the reach task.
     """
     # UR10 base positions and rotations equally spaced around a circle, facing inward
     _ur10_poses = ur10.get_ur10_base_poses(reach_constants.NUM_UR10S)

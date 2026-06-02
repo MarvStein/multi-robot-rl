@@ -1,5 +1,6 @@
 """Reward, observation, termination, metric, and reset functions for the multi-robot keyboard typing task."""
 import torch
+from typing import Any
 from mjlab.envs import ManagerBasedRlEnv
 
 import multi_robot_rl.configs.type_constants as type_constants
@@ -39,7 +40,7 @@ def _init_type_state(env: ManagerBasedRlEnv) -> None:
 # OBSERVATIONS
 # =========================================================
 
-def keyboard_state_obs(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
+def keyboard_state_obs(env: ManagerBasedRlEnv, **kwargs: Any) -> torch.Tensor:
     """Return the keyboard joint positions concatenated with the 2D grid positions of the active keys.
 
     Args:
@@ -66,7 +67,7 @@ def keyboard_state_obs(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 # TERMINATIONS
 # =========================================================
 
-def out_of_bounds(env: ManagerBasedRlEnv, robots: list[RobotConfig], **kwargs) -> torch.Tensor:
+def out_of_bounds(env: ManagerBasedRlEnv, robots: list[RobotConfig], **kwargs: Any) -> torch.Tensor:
     """Return a per-environment bool indicating whether any robot end-effector is out of bounds.
 
     An environment is flagged when any robot's end-effector exceeds the keyboard
@@ -90,7 +91,7 @@ def out_of_bounds(env: ManagerBasedRlEnv, robots: list[RobotConfig], **kwargs) -
 # REWARDS
 # =========================================================
 
-def key_pressed_reward(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
+def key_pressed_reward(env: ManagerBasedRlEnv, **kwargs: Any) -> torch.Tensor:
     """Return the count of active keys correctly pressed this step as a sparse reward signal.
 
     The returned value is env.newly_pressed_count, which is populated each step
@@ -106,7 +107,7 @@ def key_pressed_reward(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
     _init_type_state(env)
     return env.newly_pressed_count
 
-def wrong_key_penalty(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
+def wrong_key_penalty(env: ManagerBasedRlEnv, **kwargs: Any) -> torch.Tensor:
     """Return the rising-edge count of non-active keys pressed this step as a penalty signal.
 
     Only new presses (rising-edge) are counted so that holding a wrong key down
@@ -127,7 +128,7 @@ def wrong_key_penalty(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 # METRICS
 # =========================================================
 
-def throughput(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
+def throughput(env: ManagerBasedRlEnv, **kwargs: Any) -> torch.Tensor:
     """Return the total number of correctly pressed keys recorded in the previous episode.
 
     The value is snapped at episode end by reset_keyboard_state and stored in
@@ -144,7 +145,7 @@ def throughput(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
     _init_type_state(env)
     return env._final_throughput
 
-def wrong_keys_per_episode(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
+def wrong_keys_per_episode(env: ManagerBasedRlEnv, **kwargs: Any) -> torch.Tensor:
     """Return the total number of wrong key presses recorded in the previous episode.
 
     The value is snapped at episode end by reset_keyboard_state and stored in
@@ -185,7 +186,7 @@ def _sample_unique_active_keys(n: int, device: torch.device) -> torch.Tensor:
     return indices  # (n, NUM_ACTIVE_KEYS)
 
 
-def reset_keyboard_state(env: ManagerBasedRlEnv, env_ids, **kwargs) -> None:
+def reset_keyboard_state(env: ManagerBasedRlEnv, env_ids: torch.Tensor | None, **kwargs: Any) -> None:
     """Snap final metrics, zero per-episode counters, and sample new active keys for reset environments.
 
     Args:
@@ -359,7 +360,7 @@ def _update_marker_poses(
         )
 
 
-def update_keyboard_state(env: ManagerBasedRlEnv, env_ids, **kwargs) -> None:
+def update_keyboard_state(env: ManagerBasedRlEnv, env_ids: torch.Tensor | None, **kwargs: Any) -> None:
     """Step event that advances the full keyboard state for the given environments.
 
     Args:

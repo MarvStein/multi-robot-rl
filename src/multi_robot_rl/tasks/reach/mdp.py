@@ -1,6 +1,7 @@
 """Reward, observation, termination, metric, and reset functions for the multi-robot reach task."""
 
 import torch
+from typing import Any
 from mjlab.envs import ManagerBasedRlEnv
 
 from multi_robot_rl.assets.robots.base import RobotConfig
@@ -101,7 +102,7 @@ def goal_reached_reward(
     env: ManagerBasedRlEnv,
     robots: list[RobotConfig],
     play: bool = False,
-    **kwargs,
+    **kwargs: Any,
 ) -> torch.Tensor:
     """Return a sparse one-time reward for each goal newly reached in this step.
 
@@ -171,11 +172,11 @@ def goal_reached_fraction(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 
 def reset_goal_state(
     env: ManagerBasedRlEnv,
-    env_ids,
+    env_ids: torch.Tensor | None,
     play: bool,
     radius: float = reach_constants.GOAL_WORKSPACE_RADIUS,
     dz: float = reach_constants.GOAL_WORKSPACE_HEIGHT / 2.0,
-    **kwargs,
+    **kwargs: Any,
 ) -> None:
     """Sample new goal positions in a cylinder centered on the workspace and update mocap markers.
 

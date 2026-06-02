@@ -1,6 +1,7 @@
 """Reward, observation, termination, metric, and reset functions for the multi-robot push task."""
 
 import torch
+from typing import Any
 from mjlab.envs import ManagerBasedRlEnv
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 
@@ -250,10 +251,10 @@ def targets_reached_fraction(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
 
 def reset_cuboids_and_targets(
     env: ManagerBasedRlEnv,
-    env_ids,
+    env_ids: torch.Tensor | None,
     play: bool = False,
     cuboid_distance_fraction: float = 1.0,
-    **kwargs,
+    **kwargs: Any,
 ) -> None:
     """Reset cuboid positions/yaw and target poses for the given environments.
 

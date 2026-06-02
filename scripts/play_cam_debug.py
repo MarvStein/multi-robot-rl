@@ -1,7 +1,7 @@
 """Play script that prints camera state on C keypress.
 
 Usage (same args as `uv run play`):
-    uv run python src/multi_robot_rl/scripts/play_cam_debug.py <task-name> --agent random
+    uv run python scripts/play_cam_debug.py <task-name> --agent random
 
 Press C in the viewer to print current azimuth, elevation, distance, and lookat.
 """

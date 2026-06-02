@@ -116,7 +116,6 @@ def cuboid_placed_reward(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
     pos_dists = torch.cdist(cuboid_xy, target_xy)
 
     # Angular differences: (num_envs, num_cuboids, num_targets)
-    # TODO: double check angular distance calculation
     d_yaw = cuboid_yaw.unsqueeze(2) - target_yaw.unsqueeze(1)
     ang_dists = torch.abs((d_yaw + torch.pi) % (2 * torch.pi) - torch.pi)
 

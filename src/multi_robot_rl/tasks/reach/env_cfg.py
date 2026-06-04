@@ -128,6 +128,11 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
             func=reach_mdp.goal_reached_fraction,
         ),
     }
+    for i in range(len(robots)):
+        metrics[f"robot_{i}_goal_reached_fraction"] = MetricsTermCfg(
+            func=reach_mdp.robot_goal_reached_fraction,
+            params={"robot_index": i},
+        )
 
     curriculum = {
         "goal_spawn_curriculum": CurriculumTermCfg(

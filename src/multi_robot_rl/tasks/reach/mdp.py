@@ -29,6 +29,22 @@ def _init_reach_state(env: ManagerBasedRlEnv) -> None:
         )
         env._final_goal_reached_fraction = torch.zeros(env.num_envs, device=env.device)
 
+
+def _init_robot_contribution_state(env: ManagerBasedRlEnv, num_robots: int) -> None:
+    """Initialize per-robot goal contribution tensors on the env object if not already present.
+
+    Args:
+        env: The environment instance to initialize.
+        num_robots: Number of robots in the environment.
+
+    Side Effects:
+        - Sets env._robot_goal_counts to a zero tensor of shape (num_envs, num_robots) if absent.
+        - Sets env._final_robot_goal_fractions to a zero tensor of shape (num_envs, num_robots) if absent.
+    """
+    if not hasattr(env, "_robot_goal_counts"):
+        env._robot_goal_counts = torch.zeros((env.num_envs, num_robots), device=env.device)
+        env._final_robot_goal_fractions = torch.zeros((env.num_envs, num_robots), device=env.device)
+
 # =========================================================
 # OBSERVATIONS
 # =========================================================
@@ -129,6 +145,11 @@ def goal_reached_reward(
     newly_reached = any_robot_reached & ~env._goal_reached_mask
     env._goal_reached_mask |= newly_reached
 
+    _init_robot_contribution_state(env, len(robots))
+    if newly_reached.any():
+        closest_robot = distances.argmin(dim=1)  # (num_envs, NUM_GOALS)
+        env._robot_goal_counts.scatter_add_(1, closest_robot, newly_reached.float())
+
     if play and newly_reached.any():
         # hide markers of (newly) reached goals by moving them below the floor (purely visual)
         for i in range(reach_constants.NUM_GOALS):
@@ -166,6 +187,23 @@ def goal_reached_fraction(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
     _init_reach_state(env)
     return env._final_goal_reached_fraction
 
+def robot_goal_reached_fraction(env: ManagerBasedRlEnv, robot_index: int, **kwargs) -> torch.Tensor:
+    """Return the fraction of goals attributed to a specific robot at the end of the previous episode.
+
+    Per-robot fractions sum to goal_reached_fraction across all robots by construction.
+
+    Args:
+        env: The environment instance.
+        robot_index: Zero-based index of the robot whose contribution to return.
+
+    Returns:
+        Tensor of shape (num_envs,) in [0.0, 1.0].
+    """
+    _init_reach_state(env)
+    if not hasattr(env, "_final_robot_goal_fractions"):
+        return torch.zeros(env.num_envs, device=env.device)
+    return env._final_robot_goal_fractions[:, robot_index]
+
 # =========================================================
 # EVENTS & RESETS
 # =========================================================
@@ -201,6 +239,9 @@ def reset_goal_state(
 
     _init_reach_state(env)
     env._final_goal_reached_fraction[env_ids] = env._goal_reached_mask[env_ids].float().mean(dim=1)
+    if hasattr(env, "_robot_goal_counts"):
+        env._final_robot_goal_fractions[env_ids] = env._robot_goal_counts[env_ids] / reach_constants.NUM_GOALS
+        env._robot_goal_counts[env_ids] = 0.0
     env._goal_reached_mask[env_ids] = False
 
     num_envs = len(env_ids)

@@ -11,8 +11,8 @@ def ppo_runner_cfg_default() -> RslRlOnPolicyRunnerCfg:
     """Return the default PPO runner configuration shared by all tasks."""
     return RslRlOnPolicyRunnerCfg(
         num_steps_per_env=24,
-        max_iterations=200,
-        save_interval=100,
+        max_iterations=10_000,
+        save_interval=5_000,
         experiment_name="<CHANGE_ME>",
         actor=RslRlModelCfg(
             hidden_dims=(256, 128),
@@ -54,14 +54,14 @@ def ppo_runner_cfg_type_task() -> RslRlOnPolicyRunnerCfg:
     """Return the PPO runner configuration for the type task."""
     cfg = ppo_runner_cfg_default()
     cfg.experiment_name = "type_task"
-    cfg.max_iterations = 1 + 25_000 # total env steps = max_iterations * num_steps_per_env * num_envs = 25_000 * 24 * 2048
+    cfg.max_iterations = 1 + 10_000 # total env steps = max_iterations * num_steps_per_env * num_envs = 25_000 * 24 * 2048
     return cfg
 
 def ppo_runner_cfg_push_task() -> RslRlOnPolicyRunnerCfg:
     """Return the PPO runner configuration for the push task."""
     cfg = ppo_runner_cfg_default()
     cfg.experiment_name = "push_task"
-    cfg.max_iterations = 1 + 25_000 # total env steps = max_iterations * num_steps_per_env * num_envs = 25_000 * 24 * 2048
+    cfg.max_iterations = 1 + 35_000 # total env steps = max_iterations * num_steps_per_env * num_envs = 25_000 * 24 * 2048
     return cfg
 
 def fast_sac_runner_cfg_reach_task() -> RslRlFastSacRunnerCfg:

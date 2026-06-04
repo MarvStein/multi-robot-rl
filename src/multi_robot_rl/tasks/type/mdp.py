@@ -9,6 +9,22 @@ from multi_robot_rl.assets.robots.base import RobotConfig
 from multi_robot_rl.common.mdp import get_ee_positions
 
 
+def _init_robot_throughput_state(env: ManagerBasedRlEnv, num_robots: int) -> None:
+    """Initialize per-robot throughput tensors on the env object if not already present.
+
+    Args:
+        env: The managed RL environment to initialize.
+        num_robots: Number of robots in the environment.
+
+    Side Effects:
+        - Sets env._robot_keys_pressed to a zero tensor of shape (num_envs, num_robots) if absent.
+        - Sets env._final_robot_throughput to a zero tensor of shape (num_envs, num_robots) if absent.
+    """
+    if not hasattr(env, "_robot_keys_pressed"):
+        env._robot_keys_pressed = torch.zeros((env.num_envs, num_robots), device=env.device)
+        env._final_robot_throughput = torch.zeros((env.num_envs, num_robots), device=env.device)
+
+
 def _init_type_state(env: ManagerBasedRlEnv) -> None:
     """Initialize all typing-task state attributes on the environment if they are not yet present.
 
@@ -162,6 +178,23 @@ def wrong_keys_per_episode(env: ManagerBasedRlEnv, **kwargs: Any) -> torch.Tenso
     _init_type_state(env)
     return env._final_wrong_keys_per_episode
 
+def robot_throughput(env: ManagerBasedRlEnv, robot_index: int, **kwargs: Any) -> torch.Tensor:
+    """Return the number of correctly pressed keys attributed to a specific robot in the previous episode.
+
+    Per-robot throughputs sum to throughput across all robots by construction.
+
+    Args:
+        env: The managed RL environment.
+        robot_index: Zero-based index of the robot whose throughput to return.
+
+    Returns:
+        Float tensor of shape (num_envs,) with the per-robot key count from the previous episode.
+    """
+    _init_type_state(env)
+    if not hasattr(env, "_final_robot_throughput"):
+        return torch.zeros(env.num_envs, device=env.device)
+    return env._final_robot_throughput[:, robot_index]
+
 
 # =========================================================
 # EVENTS & RESETS
@@ -208,6 +241,9 @@ def reset_keyboard_state(env: ManagerBasedRlEnv, env_ids: torch.Tensor | None, *
 
     env._final_throughput[env_ids] = env._total_keys_pressed[env_ids]
     env._total_keys_pressed[env_ids] = 0.0
+    if hasattr(env, "_robot_keys_pressed"):
+        env._final_robot_throughput[env_ids] = env._robot_keys_pressed[env_ids]
+        env._robot_keys_pressed[env_ids] = 0.0
     env._final_wrong_keys_per_episode[env_ids] = env._total_wrong_keys_pressed[env_ids]
     env._total_wrong_keys_pressed[env_ids] = 0.0
     env.newly_pressed_count[env_ids] = 0.0
@@ -360,7 +396,51 @@ def _update_marker_poses(
         )
 
 
-def update_keyboard_state(env: ManagerBasedRlEnv, env_ids: torch.Tensor | None, **kwargs: Any) -> None:
+def _attribute_presses_to_robots(
+    env: ManagerBasedRlEnv,
+    env_ids: torch.Tensor,
+    slot_pressed: torch.Tensor,
+    active_keys_before: torch.Tensor,
+    robots: list[RobotConfig],
+) -> None:
+    """Attribute each correctly pressed key slot to the closest robot and accumulate per-robot counts.
+
+    Args:
+        env: The managed RL environment.
+        env_ids: Indices of environments to update.
+        slot_pressed: Bool tensor of shape (n, NUM_ACTIVE_KEYS) indicating which slots were pressed.
+        active_keys_before: Long tensor of shape (n, NUM_ACTIVE_KEYS) with active key indices
+            before _handle_successful_presses replaced pressed keys with new ones.
+        robots: List of robot configurations used to compute end-effector positions.
+
+    Side Effects:
+        - Increments env._robot_keys_pressed[env_ids] by the per-robot press count.
+    """
+    if not slot_pressed.any():
+        return
+
+    _init_robot_throughput_state(env, len(robots))
+
+    n = len(env_ids)
+    num_robots = len(robots)
+
+    ee_positions = get_ee_positions(env, robots)  # (num_envs, num_robots, 3)
+    ee_xy = ee_positions[env_ids, :, :2]  # (n, num_robots, 2)
+
+    cols = active_keys_before % type_constants.NUM_COLS  # (n, NUM_ACTIVE_KEYS)
+    rows = active_keys_before // type_constants.NUM_COLS
+    key_x, key_y = type_constants.get_key_pos_2d(cols, rows)  # (n, NUM_ACTIVE_KEYS) each
+    key_xy = torch.stack([key_x, key_y], dim=-1).float()  # (n, NUM_ACTIVE_KEYS, 2)
+
+    distances = torch.cdist(ee_xy, key_xy)  # (n, num_robots, NUM_ACTIVE_KEYS)
+    closest_robot = distances.argmin(dim=1)  # (n, NUM_ACTIVE_KEYS)
+
+    robot_counts = torch.zeros(n, num_robots, device=env.device)
+    robot_counts.scatter_add_(1, closest_robot, slot_pressed.float())
+    env._robot_keys_pressed[env_ids] += robot_counts
+
+
+def update_keyboard_state(env: ManagerBasedRlEnv, env_ids: torch.Tensor | None, robots: list[RobotConfig] | None = None, **kwargs: Any) -> None:
     """Step event that advances the full keyboard state for the given environments.
 
     Args:
@@ -388,5 +468,8 @@ def update_keyboard_state(env: ManagerBasedRlEnv, env_ids: torch.Tensor | None, 
     key_qpos, is_pressed = _detect_key_presses(env, env_ids)
     env._prev_is_pressed[env_ids] = is_pressed
     slot_pressed = _evaluate_key_presses(env, env_ids, is_pressed, prev_is_pressed)
+    active_keys_before = env.active_keys[env_ids].clone()
     _handle_successful_presses(env, env_ids, slot_pressed)
+    if robots is not None:
+        _attribute_presses_to_robots(env, env_ids, slot_pressed, active_keys_before, robots)
     _update_marker_poses(env, env_ids, key_qpos)

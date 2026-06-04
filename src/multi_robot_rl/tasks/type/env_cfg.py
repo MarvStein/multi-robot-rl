@@ -117,6 +117,7 @@ def make_type_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         "update_keyboard": EventTermCfg(
             func=type_mdp.update_keyboard_state,
             mode="step",
+            params={"robots": robots},
         ),
     }
     for robot in robots:
@@ -130,6 +131,11 @@ def make_type_env(play: bool = False) -> ManagerBasedRlEnvCfg:
             func=type_mdp.wrong_keys_per_episode,
         ),
     }
+    for i in range(len(robots)):
+        metrics[f"robot_{i}_throughput"] = MetricsTermCfg(
+            func=type_mdp.robot_throughput,
+            params={"robot_index": i},
+        )
 
     curriculum = {
         "wrong_key_penalty_schedule": CurriculumTermCfg(

@@ -49,10 +49,10 @@ class _NamedVideoRecorder(VideoRecorder):
 class RecordConfig:
     checkpoint_file: str
     """Path to the checkpoint .pt file."""
-    video_length: int = 200
+    video_length: int = 1200
     num_envs: int | None = None
-    video_height: int | None = None
-    video_width: int | None = None
+    video_height: int | None = 720
+    video_width: int | None = 1280
     device: str | None = None
 
 

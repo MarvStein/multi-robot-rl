@@ -27,11 +27,12 @@ class AlgorithmSpec:
 
 @dataclass
 class RunResult:
-    """Outcome record for a single (algorithm, variant) training run."""
+    """Outcome record for a single (algorithm, variant, seed) training run."""
 
     label: str
     algorithm: str
     variant: dict
+    seed: int
     wall_time_s: float
     exit_code: int | None  # None = timed out
     timed_out: bool
@@ -292,8 +293,9 @@ class BenchmarkRunner(ABC):
         timeout_s: int,
         wandb_project: str,
         staging: Path,
+        seed: int = 0,
     ) -> RunResult:
-        """Execute one (algorithm, variant) training run and return its outcome.
+        """Execute one (algorithm, variant, seed) training run and return its outcome.
 
         Patches constants_file with the variant values before launching the
         training process, then restores the original file and stages logs
@@ -305,6 +307,7 @@ class BenchmarkRunner(ABC):
             timeout_s: Maximum wall-clock seconds to allow the training process to run.
             wandb_project: W&B project name passed to the training command.
             staging: Directory into which completed run logs are moved.
+            seed: Random seed passed to --agent.seed; appended to the run label.
 
         Returns:
             A RunResult capturing the label, exit code, wall time, and any error.
@@ -316,7 +319,7 @@ class BenchmarkRunner(ABC):
             - Calls `_record_videos` and `_stage_logs`, which write and move files on disk.
         """
         global _current_proc
-        label = self._variant_label(algo.name, variant)
+        label = f"{self._variant_label(algo.name, variant)}_seed{seed}"
         tags = f"('{self.task_name}-sweep','{label}')"
         cmd = [
             "uv", "run", "train", algo.task_id,
@@ -324,12 +327,14 @@ class BenchmarkRunner(ABC):
             "--agent.logger", "wandb",
             "--agent.wandb-project", wandb_project,
             "--agent.wandb-tags", tags,
+            "--agent.seed", str(seed),
         ]
 
         print(f"\n{'='*60}")
         print(f"  Run:      {label}")
         print(f"  Task:     {algo.task_id}  ({algo.name})")
         print(f"  Variant:  {variant}")
+        print(f"  Seed:     {seed}")
         print(f"  Timeout:  {timeout_s // 3600}h")
         print(f"{'='*60}\n")
 
@@ -373,6 +378,7 @@ class BenchmarkRunner(ABC):
             label=label,
             algorithm=algo.name,
             variant=variant,
+            seed=seed,
             wall_time_s=round(time.monotonic() - t0, 1),
             exit_code=exit_code,
             timed_out=timed_out,
@@ -426,25 +432,31 @@ class BenchmarkRunner(ABC):
         algorithms: list[AlgorithmSpec],
         variants: list[dict],
         timeout_s: int,
+        seeds: list[int] | None = None,
     ) -> None:
-        """Execute the full benchmark sweep over all algorithm/variant combinations.
+        """Execute the full benchmark sweep over all algorithm/variant/seed combinations.
 
-        Iterates over every (algorithm, variant) pair in order, runs each training
-        job, then archives all staged logs. The sweep stops early if the user
-        interrupts with Ctrl+C; already-completed runs are still archived.
+        Iterates over every (algorithm, variant, seed) triple in order, runs each
+        training job, then archives all staged logs. The sweep stops early if the
+        user interrupts with Ctrl+C; already-completed runs are still archived.
 
         Args:
             algorithms: Ordered list of algorithms to benchmark.
             variants: Ordered list of hyperparameter variant dicts to apply per algorithm.
             timeout_s: Maximum wall-clock seconds allowed per individual training run.
+            seeds: List of integer seeds to run for each (algorithm, variant) pair.
+                Defaults to [0] (single seed) if not provided.
 
         Side Effects:
             - Installs a SIGINT handler (restores after sweep).
             - Creates a timestamped staging directory under logs/rsl_rl/ on disk.
-            - Calls `_run_one` for each pair, which patches files and launches subprocesses.
+            - Calls `_run_one` for each triple, which patches files and launches subprocesses.
             - Calls `_archive`, which writes the final .tar.gz to disk.
             - Exits the process via sys.exit if constants_file is missing.
         """
+        if seeds is None:
+            seeds = [42]
+
         if not self.constants_file.exists():
             sys.exit(f"ERROR: constants file not found: {self.constants_file}")
 
@@ -455,16 +467,19 @@ class BenchmarkRunner(ABC):
 
         signal.signal(signal.SIGINT, _sigint_handler)
 
-        total = len(algorithms) * len(variants)
+        total = len(algorithms) * len(variants) * len(seeds)
         print(f"[benchmark] {self.task_name} — {sweep_ts}")
-        print(f"[benchmark] {len(algorithms)} algo(s) × {len(variants)} variant(s) = {total} run(s), {timeout_s // 3600}h max each\n")
+        print(f"[benchmark] {len(algorithms)} algo(s) × {len(variants)} variant(s) × {len(seeds)} seed(s) = {total} run(s), {timeout_s // 3600}h max each\n")
 
         results: list[RunResult] = []
         for algo in algorithms:
             for variant in variants:
-                result = self._run_one(algo, variant, timeout_s, wandb_project, staging)
-                results.append(result)
-                print(f"[benchmark] {result.label}: {_status_str(result)} in {result.wall_time_s / 60:.1f} min")
+                for seed in seeds:
+                    result = self._run_one(algo, variant, timeout_s, wandb_project, staging, seed=seed)
+                    results.append(result)
+                    print(f"[benchmark] {result.label}: {_status_str(result)} in {result.wall_time_s / 60:.1f} min")
+                    if _interrupted:
+                        break
                 if _interrupted:
                     break
             if _interrupted:

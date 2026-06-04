@@ -17,6 +17,9 @@ ALGORITHMS = [
     # AlgorithmSpec("fast-sac", "reach-fast-sac"),
 ]
 
+# Note: mjlab is not yet deterministic https://github.com/mujocolab/mjlab/issues/1023
+SEEDS = [0, 1, 2, 3, 4]
+
 # Keys must match fields in reach_constants.py.
 VARIANTS = [
     # --- UR10s ---
@@ -75,4 +78,4 @@ class ReachBenchmark(BenchmarkRunner):
 
 
 if __name__ == "__main__":
-    ReachBenchmark().run(ALGORITHMS, VARIANTS, TIMEOUT_S)
+    ReachBenchmark().run(ALGORITHMS, VARIANTS, TIMEOUT_S, SEEDS)

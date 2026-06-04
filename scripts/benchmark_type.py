@@ -16,6 +16,9 @@ ALGORITHMS = [
     AlgorithmSpec("ppo", "type"),
 ]
 
+# Note: mjlab is not yet deterministic https://github.com/mujocolab/mjlab/issues/1023
+SEEDS = [0, 1, 2]
+
 # Keys must match fields in type_constants.py.
 VARIANTS = [
     {"NUM_MASSPOINTS": 2, "NUM_UR10S": 0, "NUM_ACTIVE_KEYS": 3, "NUM_COLS": 6, "NUM_ROWS": 3},
@@ -75,4 +78,4 @@ class TypeBenchmark(BenchmarkRunner):
 
 
 if __name__ == "__main__":
-    TypeBenchmark().run(ALGORITHMS, VARIANTS, TIMEOUT_S)
+    TypeBenchmark().run(ALGORITHMS, VARIANTS, TIMEOUT_S, SEEDS)

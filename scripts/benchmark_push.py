@@ -16,6 +16,9 @@ ALGORITHMS = [
     AlgorithmSpec("ppo", "push"),
 ]
 
+# Note: mjlab is not yet deterministic https://github.com/mujocolab/mjlab/issues/1023
+SEEDS = [0, 1, 2]
+
 # Keys must match fields in push_constants.py.
 VARIANTS = [
     {"NUM_MASSPOINTS": 2, "NUM_UR10S": 0, "NUM_CUBOIDS": 1},
@@ -70,4 +73,4 @@ class PushBenchmark(BenchmarkRunner):
 
 
 if __name__ == "__main__":
-    PushBenchmark().run(ALGORITHMS, VARIANTS, TIMEOUT_S)
+    PushBenchmark().run(ALGORITHMS, VARIANTS, TIMEOUT_S, SEEDS)

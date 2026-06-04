@@ -10,7 +10,7 @@ from benchmark_base import AlgorithmSpec, BenchmarkRunner, REPO_ROOT
 # Config
 # ---------------------------------------------------------------------------
 
-TIMEOUT_S = 3 * 60 * 60  # per run
+TIMEOUT_S = 60 * 60  # convervative timeout per run
 
 ALGORITHMS = [
     AlgorithmSpec("ppo", "type"),
@@ -18,8 +18,8 @@ ALGORITHMS = [
 
 # Keys must match fields in type_constants.py.
 VARIANTS = [
+    {"NUM_MASSPOINTS": 2, "NUM_UR10S": 0, "NUM_ACTIVE_KEYS": 3, "NUM_COLS": 6, "NUM_ROWS": 3},
     {"NUM_MASSPOINTS": 1, "NUM_UR10S": 0, "NUM_ACTIVE_KEYS": 3, "NUM_COLS": 6, "NUM_ROWS": 3},
-    {"NUM_MASSPOINTS": 3, "NUM_UR10S": 0, "NUM_ACTIVE_KEYS": 3, "NUM_COLS": 6, "NUM_ROWS": 3},
 ]
 
 # ---------------------------------------------------------------------------
@@ -29,8 +29,7 @@ VARIANTS = [
 class TypeBenchmark(BenchmarkRunner):
     """Benchmark runner for the type (keyboard) task.
 
-    Trains PPO across two robot count variants on a fixed 6x3 keyboard layout
-    with 3 active keys: one masspoint and three masspoints.  Each run patches
+    Trains several variants of the type task. Each run patches
     ``type_constants.py`` in-place to activate the selected variant before
     launching the training process.
     """

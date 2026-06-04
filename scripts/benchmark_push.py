@@ -10,7 +10,7 @@ from benchmark_base import AlgorithmSpec, BenchmarkRunner, REPO_ROOT
 # Config
 # ---------------------------------------------------------------------------
 
-TIMEOUT_S = 5 * 60 * 60  # per run
+TIMEOUT_S = 60 * 200  # convervative timeout per run
 
 ALGORITHMS = [
     AlgorithmSpec("ppo", "push"),
@@ -19,8 +19,7 @@ ALGORITHMS = [
 # Keys must match fields in push_constants.py.
 VARIANTS = [
     {"NUM_MASSPOINTS": 2, "NUM_UR10S": 0, "NUM_CUBOIDS": 1},
-    {"NUM_MASSPOINTS": 2, "NUM_UR10S": 0, "NUM_CUBOIDS": 3},
-    {"NUM_MASSPOINTS": 4, "NUM_UR10S": 0, "NUM_CUBOIDS": 3},
+    {"NUM_MASSPOINTS": 1, "NUM_UR10S": 0, "NUM_CUBOIDS": 1},
 ]
 
 # ---------------------------------------------------------------------------
@@ -30,8 +29,7 @@ VARIANTS = [
 class PushBenchmark(BenchmarkRunner):
     """Benchmark runner for the push task.
 
-    Trains PPO across three robot/cuboid variants: 2 masspoints with 1 cuboid,
-    2 masspoints with 3 cuboids, and 4 masspoints with 3 cuboids.  Each run
+    Trains several variants of the push task.  Each run
     patches ``push_constants.py`` in-place to activate the selected variant
     before launching the training process.
     """

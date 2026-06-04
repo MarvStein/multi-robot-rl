@@ -10,25 +10,21 @@ from benchmark_base import AlgorithmSpec, BenchmarkRunner, REPO_ROOT
 # Config
 # ---------------------------------------------------------------------------
 
-TIMEOUT_S = 3 * 60 * 60  # per run
+TIMEOUT_S = 60 * 180  # convervative timeout per run
 
 ALGORITHMS = [
     AlgorithmSpec("ppo",      "reach"),
-    AlgorithmSpec("fast-sac", "reach-fast-sac"),
+    # AlgorithmSpec("fast-sac", "reach-fast-sac"),
 ]
 
 # Keys must match fields in reach_constants.py.
 VARIANTS = [
-    # --- masspoints ---
-    {"NUM_MASSPOINTS": 1, "NUM_UR10S": 0, "NUM_GOALS": 5},
-    {"NUM_MASSPOINTS": 2, "NUM_UR10S": 0, "NUM_GOALS": 5},
-    {"NUM_MASSPOINTS": 3, "NUM_UR10S": 0, "NUM_GOALS": 5},
     # --- UR10s ---
-    {"NUM_MASSPOINTS": 0, "NUM_UR10S": 1, "NUM_GOALS": 5},
     {"NUM_MASSPOINTS": 0, "NUM_UR10S": 2, "NUM_GOALS": 5},
-    {"NUM_MASSPOINTS": 0, "NUM_UR10S": 3, "NUM_GOALS": 5},
-    # --- mixed ---
-    {"NUM_MASSPOINTS": 1, "NUM_UR10S": 1, "NUM_GOALS": 5},
+    {"NUM_MASSPOINTS": 0, "NUM_UR10S": 1, "NUM_GOALS": 5},
+    # --- masspoints ---
+    {"NUM_MASSPOINTS": 2, "NUM_UR10S": 0, "NUM_GOALS": 5},
+    {"NUM_MASSPOINTS": 1, "NUM_UR10S": 0, "NUM_GOALS": 5},
 ]
 
 # ---------------------------------------------------------------------------
@@ -38,9 +34,7 @@ VARIANTS = [
 class ReachBenchmark(BenchmarkRunner):
     """Benchmark runner for the reach task.
 
-    Trains PPO and FastSAC across seven robot/goal variants: three masspoint
-    counts (1–3 masspoints, 5 goals), three UR10 counts (1–3 UR10s, 5 goals),
-    and one mixed configuration (1 masspoint + 1 UR10, 5 goals).  Each run
+    Trains several variants of the reach task. Each run
     patches ``reach_constants.py`` in-place to activate the selected variant
     before launching the training process.
     """

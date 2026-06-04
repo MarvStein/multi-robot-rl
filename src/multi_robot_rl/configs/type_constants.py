@@ -1,18 +1,19 @@
 """ Constants for the type task """
+import os
 from math import pi, radians
 
 # =========================================================
-# ROBOT COUNTS
+# ROBOT COUNTS  (overridable via environment variables)
 # =========================================================
 
-NUM_MASSPOINTS = 1
-NUM_UR10S = 0
+NUM_MASSPOINTS = int(os.environ.get("NUM_MASSPOINTS", 1))
+NUM_UR10S = int(os.environ.get("NUM_UR10S", 0))
 
 # =========================================================
-# ACTIVE KEYS
+# ACTIVE KEYS  (overridable via environment variables)
 # =========================================================
 
-NUM_ACTIVE_KEYS = 3  # number of simultaneously active keys
+NUM_ACTIVE_KEYS = int(os.environ.get("NUM_ACTIVE_KEYS", 3))  # number of simultaneously active keys
 
 # =========================================================
 # KEYBOARD GEOMETRY

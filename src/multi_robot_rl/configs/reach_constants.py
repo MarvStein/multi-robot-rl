@@ -1,18 +1,19 @@
 """ Constants for the reach task """
+import os
 from math import pi, radians
 
 # =========================================================
-# ROBOT COUNTS
+# ROBOT COUNTS  (overridable via environment variables)
 # =========================================================
 
-NUM_MASSPOINTS = 1
-NUM_UR10S = 0
+NUM_MASSPOINTS = int(os.environ.get("NUM_MASSPOINTS", 1))
+NUM_UR10S = int(os.environ.get("NUM_UR10S", 0))
 
 # =========================================================
-# GOALS
+# GOALS  (overridable via environment variables)
 # =========================================================
 
-NUM_GOALS = 1
+NUM_GOALS = int(os.environ.get("NUM_GOALS", 1))
 MARKER_SIZE = (0.05, 0.05, 0.002)
 REACH_GOAL_RGBA = (0.2, 0.8, 0.8, 0.6)
 

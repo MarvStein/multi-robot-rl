@@ -45,6 +45,12 @@ To train a task, run the following:
 uv run train <reach/push/type>
 ```
 
+Robot counts and task complexity can be overridden via environment variables without modifying any files:
+
+```bash
+NUM_MASSPOINTS=2 NUM_GOALS=5 uv run train reach
+```
+
 ### Outputs
 
 By default, logs and model checkpoints are written under `logs/rsl_rl`
@@ -58,6 +64,12 @@ To evaluate a trained model run the following:
 
 ```bash
 uv run play <reach/push/type> --checkpoint-file logs/rsl_rl/<...>.pt
+```
+
+Don't forget to set the env vars to what they were during training, e.g.
+
+```bash
+NUM_MASSPOINTS=2 NUM_GOALS=5 uv run play <reach/push/type> --checkpoint-file logs/rsl_rl/<...>.pt
 ```
 
 ## Recording Videos

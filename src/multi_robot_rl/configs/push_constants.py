@@ -1,13 +1,14 @@
 """ Constants for the push task """
+import os
 from math import pi, radians, sqrt
 
 # =========================================================
-# ROBOT COUNTS
+# ROBOT COUNTS  (overridable via environment variables)
 # =========================================================
 
-NUM_MASSPOINTS = 2
-NUM_UR10S = 0
-NUM_CUBOIDS = 1  # also the number of target poses
+NUM_MASSPOINTS = int(os.environ.get("NUM_MASSPOINTS", 2))
+NUM_UR10S = int(os.environ.get("NUM_UR10S", 0))
+NUM_CUBOIDS = int(os.environ.get("NUM_CUBOIDS", 1))  # also the number of target poses
 
 # =========================================================
 # CUBOIDS

@@ -20,7 +20,6 @@ ALGORITHMS = [
 # Note: mjlab is not yet deterministic https://github.com/mujocolab/mjlab/issues/1023
 SEEDS = [0, 1, 2, 3, 4]
 
-# Keys must match fields in reach_constants.py.
 VARIANTS = [
     # --- UR10s ---
     {"NUM_MASSPOINTS": 0, "NUM_UR10S": 2, "NUM_GOALS": 5},
@@ -35,20 +34,9 @@ VARIANTS = [
 # ---------------------------------------------------------------------------
 
 class ReachBenchmark(BenchmarkRunner):
-    """Benchmark runner for the reach task.
-
-    Trains several variants of the reach task. Each run
-    patches ``reach_constants.py`` in-place to activate the selected variant
-    before launching the training process.
-    """
+    """Benchmark runner for the reach task."""
 
     task_name = "reach"
-    constants_file = REPO_ROOT / "src" / "multi_robot_rl" / "configs" / "reach_constants.py"
-    patch_targets = {
-        "NUM_MASSPOINTS": r"^NUM_MASSPOINTS\s*=\s*\d+",
-        "NUM_UR10S":      r"^NUM_UR10S\s*=\s*\d+",
-        "NUM_GOALS":      r"^NUM_GOALS\s*=\s*\d+",
-    }
 
     def _variant_label(self, algo_name: str, variant: dict) -> str:
         """Build a human-readable run label from the algorithm name and variant config.

@@ -19,7 +19,6 @@ ALGORITHMS = [
 # Note: mjlab is not yet deterministic https://github.com/mujocolab/mjlab/issues/1023
 SEEDS = [0, 1, 2]
 
-# Keys must match fields in push_constants.py.
 VARIANTS = [
     {"NUM_MASSPOINTS": 2, "NUM_UR10S": 0, "NUM_CUBOIDS": 1},
     {"NUM_MASSPOINTS": 1, "NUM_UR10S": 0, "NUM_CUBOIDS": 1},
@@ -30,20 +29,9 @@ VARIANTS = [
 # ---------------------------------------------------------------------------
 
 class PushBenchmark(BenchmarkRunner):
-    """Benchmark runner for the push task.
-
-    Trains several variants of the push task.  Each run
-    patches ``push_constants.py`` in-place to activate the selected variant
-    before launching the training process.
-    """
+    """Benchmark runner for the push task."""
 
     task_name = "push"
-    constants_file = REPO_ROOT / "src" / "multi_robot_rl" / "configs" / "push_constants.py"
-    patch_targets = {
-        "NUM_MASSPOINTS": r"^NUM_MASSPOINTS\s*=\s*\d+",
-        "NUM_UR10S":      r"^NUM_UR10S\s*=\s*\d+",
-        "NUM_CUBOIDS":    r"^NUM_CUBOIDS\s*=\s*\d+",
-    }
 
     def _variant_label(self, algo_name: str, variant: dict) -> str:
         """Build a human-readable run label from the algorithm name and variant config.

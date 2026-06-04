@@ -2,7 +2,6 @@
 
 import json
 import os
-import re
 import shutil
 import signal
 import subprocess
@@ -96,28 +95,18 @@ def _status_str(r: RunResult) -> str:
 class BenchmarkRunner(ABC):
     """Base class for task-specific benchmark runners.
 
-    Subclasses define task_name, constants_file, and patch_targets as class
-    attributes, then call self.run(algorithms, variants, timeout_s) from their
-    __main__ block. Override _variant_label for task-specific label formatting.
+    Subclasses define task_name and call self.run(algorithms, variants, timeout_s)
+    from their __main__ block. Variant dicts map env var names to values (e.g.
+    {"NUM_MASSPOINTS": 2, "NUM_GOALS": 5}); these are passed to each training
+    subprocess as environment variables so runs are fully independent and
+    parallelisable across Slurm jobs.
+    Override _variant_label for task-specific label formatting.
     """
 
     @property
     @abstractmethod
     def task_name(self) -> str:
         """Short task name, e.g. 'reach'. Used for log dirs and W&B project."""
-
-    @property
-    @abstractmethod
-    def constants_file(self) -> Path:
-        """Path to the *_constants.py file to patch for each variant."""
-
-    @property
-    @abstractmethod
-    def patch_targets(self) -> dict[str, str]:
-        """Maps constant field name -> regex matching its assignment line.
-
-        Example: {"NUM_MASSPOINTS": r"^NUM_MASSPOINTS\\s*=\\s*\\d+"}
-        """
 
     @property
     def logs_dir(self) -> Path:
@@ -139,47 +128,6 @@ class BenchmarkRunner(ABC):
             for k, v in variant.items()
         ]
         return "_".join(parts)
-
-    # ------------------------------------------------------------------
-    # Constants patching
-    # ------------------------------------------------------------------
-
-    def _patch_constants(self, variant: dict) -> str:
-        """Substitute variant field values into constants_file and return the original text.
-
-        Args:
-            variant: Mapping of constant field names to the values to write.
-
-        Returns:
-            The unmodified original contents of constants_file, suitable for
-            passing to `_restore_constants`.
-
-        Side Effects:
-            - Overwrites constants_file on disk with the patched content.
-        """
-        original = self.constants_file.read_text()
-        patched = original
-        for field, value in variant.items():
-            if field in self.patch_targets:
-                patched = re.sub(
-                    self.patch_targets[field],
-                    f"{field} = {value}",
-                    patched,
-                    flags=re.MULTILINE,
-                )
-        self.constants_file.write_text(patched)
-        return original
-
-    def _restore_constants(self, original: str) -> None:
-        """Restore constants_file to its original contents.
-
-        Args:
-            original: The text previously returned by `_patch_constants`.
-
-        Side Effects:
-            - Overwrites constants_file on disk with the original content.
-        """
-        self.constants_file.write_text(original)
 
     # ------------------------------------------------------------------
     # Log staging
@@ -215,7 +163,7 @@ class BenchmarkRunner(ABC):
                 return -1
         return max(pts, key=_step)
 
-    def _record_videos(self, algo: AlgorithmSpec, label: str, before: set[str]) -> None:
+    def _record_videos(self, algo: AlgorithmSpec, label: str, before: set[str], env: dict) -> None:
         """Record evaluation videos for all new run directories produced by a training run.
 
         Args:
@@ -223,6 +171,8 @@ class BenchmarkRunner(ABC):
             label: Run label used to identify which new directories belong to this run.
             before: Snapshot of subdirectory names that existed before the run started,
                 used to isolate newly created directories.
+            env: Environment variables to pass to the record subprocess (must match
+                the variant used during training so the env config is identical).
 
         Side Effects:
             - Launches a `uv run record` subprocess per new run directory.
@@ -246,7 +196,7 @@ class BenchmarkRunner(ABC):
             ]
             print(f"[benchmark] Recording video: {ckpt.name} → {run_dir.name}/videos/")
             try:
-                subprocess.run(cmd, cwd=REPO_ROOT, timeout=300)
+                subprocess.run(cmd, cwd=REPO_ROOT, timeout=300, env=env)
             except subprocess.TimeoutExpired:
                 print(f"[benchmark] Video recording timed out for {run_dir.name}.")
             except Exception as exc:
@@ -297,13 +247,12 @@ class BenchmarkRunner(ABC):
     ) -> RunResult:
         """Execute one (algorithm, variant, seed) training run and return its outcome.
 
-        Patches constants_file with the variant values before launching the
-        training process, then restores the original file and stages logs
-        regardless of how the run terminates.
+        Variant values are passed to the training subprocess as environment
+        variables, so multiple runs can execute concurrently without file conflicts.
 
         Args:
             algo: Algorithm to train, providing the task_id for the `train` command.
-            variant: Constant overrides to apply for this run.
+            variant: Mapping of env var names to values (e.g. {"NUM_MASSPOINTS": 2}).
             timeout_s: Maximum wall-clock seconds to allow the training process to run.
             wandb_project: W&B project name passed to the training command.
             staging: Directory into which completed run logs are moved.
@@ -313,9 +262,8 @@ class BenchmarkRunner(ABC):
             A RunResult capturing the label, exit code, wall time, and any error.
 
         Side Effects:
-            - Patches and restores constants_file on disk.
             - Sets the module-level `_current_proc` to the training subprocess while running.
-            - Launches a `uv run train` subprocess.
+            - Launches a `uv run train` subprocess with variant env vars set.
             - Calls `_record_videos` and `_stage_logs`, which write and move files on disk.
         """
         global _current_proc
@@ -339,14 +287,14 @@ class BenchmarkRunner(ABC):
         print(f"{'='*60}\n")
 
         before = self._snapshot_subdirs()
-        original = self._patch_constants(variant)
+        env = {**os.environ, **{k: str(v) for k, v in variant.items()}}
         t0 = time.monotonic()
         timed_out = False
         exit_code = None
         error = None
 
         try:
-            proc = subprocess.Popen(cmd, cwd=REPO_ROOT, start_new_session=True)
+            proc = subprocess.Popen(cmd, cwd=REPO_ROOT, start_new_session=True, env=env)
             _current_proc = proc
             try:
                 proc.wait(timeout=timeout_s)
@@ -369,8 +317,7 @@ class BenchmarkRunner(ABC):
             print(f"\n[benchmark] Unexpected error for {label}: {exc}")
         finally:
             _current_proc = None
-            self._record_videos(algo, label, before)
-            self._restore_constants(original)
+            self._record_videos(algo, label, before, env)
 
         self._stage_logs(label, staging, before)
 
@@ -450,15 +397,11 @@ class BenchmarkRunner(ABC):
         Side Effects:
             - Installs a SIGINT handler (restores after sweep).
             - Creates a timestamped staging directory under logs/rsl_rl/ on disk.
-            - Calls `_run_one` for each triple, which patches files and launches subprocesses.
+            - Calls `_run_one` for each triple, which launches subprocesses with variant env vars.
             - Calls `_archive`, which writes the final .tar.gz to disk.
-            - Exits the process via sys.exit if constants_file is missing.
         """
         if seeds is None:
             seeds = [42]
-
-        if not self.constants_file.exists():
-            sys.exit(f"ERROR: constants file not found: {self.constants_file}")
 
         sweep_ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         wandb_project = f"multi-robot-rl-{self.task_name}-{sweep_ts}"

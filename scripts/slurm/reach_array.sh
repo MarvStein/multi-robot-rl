@@ -3,7 +3,7 @@
 #SBATCH --gpus=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=32G
+#SBATCH --mem-per-cpu=8G
 #SBATCH --time=03:59:00
 #SBATCH --array=0-19
 #SBATCH --output=scripts/slurm/logs/reach_%A_%a.out

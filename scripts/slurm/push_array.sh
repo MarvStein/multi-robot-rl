@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=push
-#SBATCH --partition=gpupr.4h
 #SBATCH --gpus=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4

@@ -1,0 +1,1 @@
+after installation, ensure to execute uv run python -c "import multi_robot_rl" once from the repo root to pre-generate all assets!

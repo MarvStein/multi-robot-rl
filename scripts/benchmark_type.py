@@ -10,14 +10,14 @@ from benchmark_base import AlgorithmSpec, BenchmarkRunner, REPO_ROOT
 # Config
 # ---------------------------------------------------------------------------
 
-TIMEOUT_S = 60 * 60  # convervative timeout per run
+TIMEOUT_S = 60 * 120  # convervative timeout per run
 
 ALGORITHMS = [
     AlgorithmSpec("ppo", "type"),
 ]
 
 # Note: mjlab is not yet deterministic https://github.com/mujocolab/mjlab/issues/1023
-SEEDS = [0, 1, 2]
+SEEDS = [0, 1, 2, 3, 4]
 
 VARIANTS = [
     {"NUM_MASSPOINTS": 2, "NUM_UR10S": 0, "NUM_ACTIVE_KEYS": 3},

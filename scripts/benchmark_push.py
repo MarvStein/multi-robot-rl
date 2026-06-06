@@ -10,7 +10,7 @@ from benchmark_base import AlgorithmSpec, BenchmarkRunner, REPO_ROOT
 # Config
 # ---------------------------------------------------------------------------
 
-TIMEOUT_S = 60 * 240  # convervative timeout per run
+TIMEOUT_S = 60 * 360  # convervative timeout per run
 
 ALGORITHMS = [
     AlgorithmSpec("ppo", "push"),

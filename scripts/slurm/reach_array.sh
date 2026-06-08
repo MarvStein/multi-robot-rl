@@ -41,5 +41,5 @@ uv run train reach \
     --agent.seed "$SEED" \
     --agent.run-name "$RUN_NAME" \
     --agent.logger wandb \
-    --agent.wandb-project multi-robot-rl-euler-reach \
+    --agent.wandb-project multi-robot-rl-euler-reach-2 \
     --agent.wandb-tags "('reach-sweep','$RUN_NAME')"

@@ -12,6 +12,8 @@ wheels/
 .vscode/
 logs/
 wandb/
+data/
+figures/
 
 # documentation output
 site/

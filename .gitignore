@@ -13,6 +13,7 @@ wheels/
 logs/
 wandb/
 data/
+figures/
 
 # documentation output
 site/

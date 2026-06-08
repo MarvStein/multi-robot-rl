@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "mjlab>=1.1.0",
+    "pandas>=3.0.3",
 ]
 
 [project.scripts]

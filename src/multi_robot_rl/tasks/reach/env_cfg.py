@@ -25,12 +25,14 @@ from multi_robot_rl.common import curriculum as common_curriculum
 import multi_robot_rl.configs.reach_constants as reach_constants
 
 
-def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
+def make_reach_env(play: bool = False, no_curriculum: bool = False) -> ManagerBasedRlEnvCfg:
     """Build and return the full configuration for the reach task environment.
 
     Args:
         play: When True, creates a single-environment interactive configuration
             with curriculum disabled and a fixed viewer perspective.
+        no_curriculum: When True, disables the goal spawn curriculum and spawns
+            goals at full workspace radius from the start.
 
     Returns:
         Fully populated ManagerBasedRlEnvCfg covering scene, observations, actions,
@@ -115,8 +117,8 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
             mode="reset",
             params={
                 "play": play,
-                "radius": 0.2,
-                "dz": 0.2,
+                "radius": 1.0 if no_curriculum else 0.2,
+                "dz": 1.0 if no_curriculum else 0.2,
             },
         ),
     }
@@ -134,7 +136,7 @@ def make_reach_env(play: bool = False) -> ManagerBasedRlEnvCfg:
             params={"robot_index": i},
         )
 
-    curriculum = {
+    curriculum = {} if no_curriculum else {
         "goal_spawn_curriculum": CurriculumTermCfg(
             func=common_curriculum.metric_event_curriculum,
             params={

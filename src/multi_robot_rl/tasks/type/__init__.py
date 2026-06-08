@@ -10,3 +10,10 @@ register_mjlab_task(
     play_env_cfg=make_type_env(play=True),
     rl_cfg=ppo_runner_cfg_type_task(),
 )
+
+register_mjlab_task(
+    task_id="type-no-curriculum",
+    env_cfg=make_type_env(no_curriculum=True),
+    play_env_cfg=make_type_env(play=True, no_curriculum=True),
+    rl_cfg=ppo_runner_cfg_type_task(),
+)

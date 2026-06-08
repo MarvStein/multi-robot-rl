@@ -28,12 +28,13 @@ from multi_robot_rl.common import curriculum as common_curriculum
 import multi_robot_rl.configs.type_constants as type_constants
 
 
-def make_type_env(play: bool = False) -> ManagerBasedRlEnvCfg:
+def make_type_env(play: bool = False, no_curriculum: bool = False) -> ManagerBasedRlEnvCfg:
     """
     Factory for the type task environment.
 
     Args:
         play: Single-env interactive mode when True.
+        no_curriculum: Disable curriculum when True.
 
     Returns:
         ManagerBasedRlEnvCfg: The configuration for the type task environment.
@@ -86,7 +87,7 @@ def make_type_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         ),
         "wrong_key_penalty": RewardTermCfg(
             func=type_mdp.wrong_key_penalty,
-            weight=0.0,
+            weight=-0.3 if no_curriculum else 0.0,
         ),
         "action_rate_penalty": RewardTermCfg(
             func=mjlab_rewards.action_rate_l2,
@@ -137,7 +138,7 @@ def make_type_env(play: bool = False) -> ManagerBasedRlEnvCfg:
             params={"robot_index": i},
         )
 
-    curriculum = {
+    curriculum = {} if no_curriculum else {
         "wrong_key_penalty_schedule": CurriculumTermCfg(
             func=common_curriculum.metric_reward_curriculum,
             params={

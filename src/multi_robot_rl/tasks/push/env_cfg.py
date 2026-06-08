@@ -28,12 +28,14 @@ from multi_robot_rl.common import curriculum as common_curriculum
 import multi_robot_rl.configs.push_constants as push_constants
 
 
-def make_push_env(play: bool = False) -> ManagerBasedRlEnvCfg:
+def make_push_env(play: bool = False, no_curriculum: bool = False) -> ManagerBasedRlEnvCfg:
     """Build and return the configuration for the push task environment.
 
     Args:
         play: When True, creates a single-environment interactive setup with
             curriculum constraints disabled and an adjusted viewer.
+        no_curriculum: When True, disables the cuboid distance curriculum and
+            spawns cuboids at full workspace distance from the start.
 
     Returns:
         Fully populated ManagerBasedRlEnvCfg covering scene, observations,
@@ -120,7 +122,7 @@ def make_push_env(play: bool = False) -> ManagerBasedRlEnvCfg:
             mode="reset",
             params={
                 "play": play,
-                "cuboid_distance_fraction": 0.2,
+                "cuboid_distance_fraction": 1.0 if no_curriculum else 0.2,
             },
         ),
     }
@@ -133,7 +135,7 @@ def make_push_env(play: bool = False) -> ManagerBasedRlEnvCfg:
         ),
     }
 
-    curriculum = {
+    curriculum = {} if no_curriculum else {
         "target_spawn_curriculum": CurriculumTermCfg(
             func=common_curriculum.metric_event_curriculum,
             params={

@@ -2,8 +2,8 @@
 #SBATCH --job-name=reach-4robot
 #SBATCH --gpus=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=4
-#SBATCH --mem-per-cpu=8G
+#SBATCH --cpus-per-task=2
+#SBATCH --mem-per-cpu=2G
 #SBATCH --time=07:59:00
 #SBATCH --array=0-9
 #SBATCH --output=scripts/slurm/logs/reach_4robot_%A_%a.out

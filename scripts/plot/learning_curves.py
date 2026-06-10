@@ -3,43 +3,93 @@
 Run from repo root:
     uv run python scripts/plot/learning_curves.py
 
-One figure per (task, metric), saved to figures/.
+One figure per entry in FIGURES, saved to figures/.
 """
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from utils import STEP_COL, add_variant_label, load_history, save_figure
-
-PROJECTS = {
-    "push":  "multi-robot-rl-push-2026-06-06_12-22-30",
-    "type":  "multi-robot-rl-type-2026-06-05_13-48-30",
-    # "reach": "multi-robot-rl-euler-reach",
-}
-
-# Metrics to plot per task and their y-axis labels.
-PLOTS = {
-    "push": [
-        ("Episode_Metrics/targets_reached_fraction", "Success rate"),
-    ],
-    "type": [
-        ("Episode_Metrics/throughput",             "Correct keys per episode"),
-        ("Episode_Metrics/wrong_keys_per_episode", "Wrong keys per episode"),
-    ],
-    "reach": [
-        ("Episode_Metrics/goal_reached_fraction",  "Average fraction of goals reached"),
-    ],
-}
-
-# Individual seed lines for step-like curves (reach); std band for smooth ones.
-INDIVIDUAL_SEEDS = {"reach": True, "push": False, "type": False}
+from utils import PROJECTS, STEP_COL, add_variant_label, load_history, save_figure
 
 ALPHA_SEED = 0.25
 ALPHA_BAND = 0.2
+SMOOTH_SPAN = 30  # EMA half-life in steps
+
+# Each dict defines one output figure.
+#   name            — output filename ({name}.pdf)
+#   projects        — list of project keys from PROJECTS; rows are concatenated
+#   filter          — optional callable (df) -> bool Series applied after variant labelling
+#   metric          — W&B metric column to plot
+#   ylabel          — y-axis label
+#   individual_seeds — True: thin per-seed lines + dashed mean; False: mean + std band
+FIGURES = [
+    dict(
+        name="reach_mp",
+        projects=["reach"],
+        filter=lambda df: ~df["variant"].str.contains("UR10"),
+        metric="Episode_Metrics/goal_reached_fraction",
+        ylabel="Average fraction of goals reached",
+        individual_seeds=True,
+    ),
+    dict(
+        name="reach_ur10",
+        projects=["reach"],
+        filter=lambda df: df["variant"].str.contains("UR10"),
+        metric="Episode_Metrics/goal_reached_fraction",
+        ylabel="Average fraction of goals reached",
+        individual_seeds=True,
+    ),
+    dict(
+        name="push",
+        projects=["push"],
+        metric="Episode_Metrics/targets_reached_fraction",
+        ylabel="Success rate",
+        individual_seeds=False,
+    ),
+    dict(
+        name="push_no_curriculum",
+        projects=["push-no-curriculum"],
+        metric="Episode_Metrics/targets_reached_fraction",
+        ylabel="Success rate",
+        individual_seeds=True,
+    ),
+    dict(
+        name="type_throughput",
+        projects=["type"],
+        metric="Episode_Metrics/throughput",
+        ylabel="Correct keys per episode",
+        individual_seeds=False,
+    ),
+    dict(
+        name="type_wrong_keys",
+        projects=["type"],
+        metric="Episode_Metrics/wrong_keys_per_episode",
+        ylabel="Wrong keys per episode",
+        individual_seeds=False,
+    ),
+    dict(
+        name="type_no_curriculum_throughput",
+        projects=["type-no-curriculum"],
+        metric="Episode_Metrics/throughput",
+        ylabel="Correct keys per episode",
+        individual_seeds=False,
+    ),
+    dict(
+        name="type_no_curriculum_wrong_keys",
+        projects=["type-no-curriculum"],
+        metric="Episode_Metrics/wrong_keys_per_episode",
+        ylabel="Wrong keys per episode",
+        individual_seeds=False,
+    ),
+]
 
 
-def plot_metric(ax: plt.Axes, df: pd.DataFrame, task: str,
-                metric: str, ylabel: str) -> None:
+def _ema(s: pd.Series) -> pd.Series:
+    return s.ewm(span=SMOOTH_SPAN, adjust=False).mean()
+
+
+def plot_metric(ax: plt.Axes, df: pd.DataFrame, metric: str, ylabel: str,
+                individual_seeds: bool) -> None:
     for variant in sorted(df["variant"].unique()):
         vdf = df[df["variant"] == variant]
 
@@ -47,7 +97,7 @@ def plot_metric(ax: plt.Axes, df: pd.DataFrame, task: str,
         for run in vdf["run_name"].unique():
             s = vdf[vdf["run_name"] == run][[STEP_COL, metric]].dropna()
             s = s.sort_values(STEP_COL).set_index(STEP_COL)[metric]
-            seed_series.append(s)
+            seed_series.append(_ema(s))
 
         common = seed_series[0].index
         aligned = pd.concat(
@@ -56,12 +106,13 @@ def plot_metric(ax: plt.Axes, df: pd.DataFrame, task: str,
         mean = aligned.mean(axis=1)
         std  = aligned.std(axis=1)
 
-        if INDIVIDUAL_SEEDS[task]:
-            for col in aligned.columns:
-                line, = ax.plot(aligned.index, aligned[col],
-                                alpha=ALPHA_SEED, linewidth=0.8)
-            ax.plot(aligned.index, mean, color=line.get_color(),
-                    linewidth=1.8, label=variant)
+        if individual_seeds:
+            color = ax._get_lines.get_next_color()
+            for i in range(aligned.shape[1]):
+                ax.plot(aligned.index, aligned.iloc[:, i],
+                        color=color, alpha=ALPHA_SEED, linewidth=0.8)
+            ax.plot(aligned.index, _ema(mean), color=color,
+                    linewidth=1.8, linestyle="--", label=variant)
         else:
             line, = ax.plot(aligned.index, mean, linewidth=1.8, label=variant)
             ax.fill_between(aligned.index, mean - std, mean + std,
@@ -72,24 +123,34 @@ def plot_metric(ax: plt.Axes, df: pd.DataFrame, task: str,
     ax.legend()
 
 
-def plot_task(task: str, project: str) -> None:
-    df = load_history(project)
+def plot_figure(cfg: dict) -> None:
+    frames = []
+    for key in cfg["projects"]:
+        try:
+            frames.append(load_history(PROJECTS[key]))
+        except FileNotFoundError as e:
+            print(e)
+    if not frames:
+        return
+
+    df = pd.concat(frames, ignore_index=True) if len(frames) > 1 else frames[0]
     df = add_variant_label(df)
 
-    for metric, ylabel in PLOTS[task]:
-        if metric not in df.columns:
-            print(f"[{task}] '{metric}' not found in data, skipping.")
-            continue
-        fig, ax = plt.subplots(figsize=(6, 4))
-        plot_metric(ax, df, task, metric, ylabel)
-        fig.tight_layout()
-        save_figure(fig, f"learning_curves_{task}_{metric.split('/')[-1]}")
-        plt.close(fig)
+    if "filter" in cfg:
+        df = df[cfg["filter"](df)]
+
+    metric = cfg["metric"]
+    if metric not in df.columns:
+        print(f"[{cfg['name']}] '{metric}' not found in data, skipping.")
+        return
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    plot_metric(ax, df, metric, cfg["ylabel"], cfg["individual_seeds"])
+    fig.tight_layout()
+    save_figure(fig, f"{cfg['name']}")
+    plt.close(fig)
 
 
 if __name__ == "__main__":
-    for task, project in PROJECTS.items():
-        try:
-            plot_task(task, project)
-        except FileNotFoundError as e:
-            print(e)
+    for cfg in FIGURES:
+        plot_figure(cfg)

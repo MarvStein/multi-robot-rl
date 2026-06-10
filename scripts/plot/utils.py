@@ -13,6 +13,14 @@ FIGURES_DIR = Path(__file__).parent.parent.parent / "figures"
 
 STEP_COL = "Train/env_steps"
 
+PROJECTS = {
+    "reach":              "multi-robot-rl-euler-reach",
+    "push":               "multi-robot-rl-push-2026-06-06_12-22-30",
+    "type":               "multi-robot-rl-type-2026-06-05_13-48-30",
+    "type-no-curriculum": "multi-robot-rl-type-no-curriculum-2026-06-08_12-34-39",
+    "push-no-curriculum": "multi-robot-rl-push-no-curriculum-2026-06-08_15-35-00",
+}
+
 
 def load_history(project: str) -> pd.DataFrame:
     path = DATA_DIR / f"{project}_histories.csv"

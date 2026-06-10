@@ -12,12 +12,9 @@ from pathlib import Path
 import pandas as pd
 import wandb
 
+from utils import PROJECTS
+
 ENTITY = "marvin-k-steinkellner-eth"
-PROJECTS = {
-    # "reach": "multi-robot-rl-euler-reach",
-    "push":  "multi-robot-rl-push-2026-06-06_12-22-30",
-    "type":  "multi-robot-rl-type-2026-06-05_13-48-30",
-}
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 
 VARIANT_KEYS = (

@@ -100,6 +100,10 @@ def make_reach_env(play: bool = False, no_curriculum: bool = False) -> ManagerBa
             params={"robots": robots},
             weight=-1.0,
         ),
+        "step_penalty": RewardTermCfg(
+            func=mjlab_rewards.is_alive,
+            weight=-0.005,
+        ),
     }
 
     terminations = {
@@ -129,10 +133,17 @@ def make_reach_env(play: bool = False, no_curriculum: bool = False) -> ManagerBa
         "goal_reached_fraction": MetricsTermCfg(
             func=reach_mdp.goal_reached_fraction,
         ),
+        "goals_per_second": MetricsTermCfg(
+            func=reach_mdp.goals_per_second,
+        ),
     }
     for i in range(len(robots)):
         metrics[f"robot_{i}_goal_reached_fraction"] = MetricsTermCfg(
             func=reach_mdp.robot_goal_reached_fraction,
+            params={"robot_index": i},
+        )
+        metrics[f"robot_{i}_goals_per_second"] = MetricsTermCfg(
+            func=reach_mdp.robot_goals_per_second,
             params={"robot_index": i},
         )
 

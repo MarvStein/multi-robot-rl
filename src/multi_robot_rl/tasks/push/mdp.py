@@ -62,6 +62,7 @@ def _init_push_state(env: ManagerBasedRlEnv) -> None:
             (env.num_envs, push_constants.NUM_CUBOIDS), dtype=torch.bool, device=env.device
         )
         env._final_target_reached_fraction = torch.zeros(env.num_envs, device=env.device)
+        env._final_episode_length = torch.zeros(env.num_envs, device=env.device)
 
 
 # =========================================================
@@ -245,6 +246,23 @@ def targets_reached_fraction(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
     _init_push_state(env)
     return env._final_target_reached_fraction
 
+
+def targets_per_second(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
+    """Return total targets satisfied per second at the end of the previous episode.
+
+    Args:
+        env: The environment instance providing push-task state.
+        **kwargs: Unused; accepted for compatibility with the metrics manager interface.
+
+    Returns:
+        Float tensor of shape (num_envs,) with targets/second for the most recently
+        completed episode.
+    """
+    _init_push_state(env)
+    episode_seconds = (env._final_episode_length * env.step_dt).clamp(min=env.step_dt)
+    targets_reached = env._final_target_reached_fraction * push_constants.NUM_CUBOIDS
+    return targets_reached / episode_seconds
+
 # =========================================================
 # EVENTS & RESETS
 # =========================================================
@@ -300,6 +318,7 @@ def reset_cuboids_and_targets(
 
     _init_push_state(env)
     env._final_target_reached_fraction[env_ids] = env._target_satisfied_mask[env_ids].float().mean(dim=1)
+    env._final_episode_length[env_ids] = env.episode_length_buf[env_ids].float()
     env._target_satisfied_mask[env_ids] = False
     num = len(env_ids)
 

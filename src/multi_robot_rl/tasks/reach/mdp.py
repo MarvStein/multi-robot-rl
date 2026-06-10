@@ -19,6 +19,7 @@ def _init_reach_state(env: ManagerBasedRlEnv) -> None:
         - Sets env.goal_positions to a zero tensor of shape (num_envs, NUM_GOALS, 3) if absent.
         - Sets env._goal_reached_mask to a boolean zero tensor of shape (num_envs, NUM_GOALS) if absent.
         - Sets env._final_goal_reached_fraction to a zero tensor of shape (num_envs,) if absent.
+        - Sets env._final_episode_length to a zero tensor of shape (num_envs,) if absent.
     """
     if not hasattr(env, "goal_positions"):
         env.goal_positions = torch.zeros(
@@ -28,6 +29,7 @@ def _init_reach_state(env: ManagerBasedRlEnv) -> None:
             (env.num_envs, reach_constants.NUM_GOALS), dtype=torch.bool, device=env.device
         )
         env._final_goal_reached_fraction = torch.zeros(env.num_envs, device=env.device)
+        env._final_episode_length = torch.zeros(env.num_envs, device=env.device)
 
 
 def _init_robot_contribution_state(env: ManagerBasedRlEnv, num_robots: int) -> None:
@@ -204,6 +206,40 @@ def robot_goal_reached_fraction(env: ManagerBasedRlEnv, robot_index: int, **kwar
         return torch.zeros(env.num_envs, device=env.device)
     return env._final_robot_goal_fractions[:, robot_index]
 
+def goals_per_second(env: ManagerBasedRlEnv, **kwargs) -> torch.Tensor:
+    """Return total goals reached per second at the end of the previous episode.
+
+    Args:
+        env: The environment instance.
+
+    Returns:
+        Tensor of shape (num_envs,) with goals/second for the most recently completed episode.
+    """
+    _init_reach_state(env)
+    episode_seconds = (env._final_episode_length * env.step_dt).clamp(min=env.step_dt)
+    goals_reached = env._final_goal_reached_fraction * reach_constants.NUM_GOALS
+    return goals_reached / episode_seconds
+
+
+def robot_goals_per_second(env: ManagerBasedRlEnv, robot_index: int, **kwargs) -> torch.Tensor:
+    """Return goals per second attributed to a specific robot at the end of the previous episode.
+
+    Per-robot values sum to goals_per_second across all robots by construction.
+
+    Args:
+        env: The environment instance.
+        robot_index: Zero-based index of the robot whose throughput to return.
+
+    Returns:
+        Tensor of shape (num_envs,) with goals/second for the given robot.
+    """
+    _init_reach_state(env)
+    if not hasattr(env, "_final_robot_goal_fractions"):
+        return torch.zeros(env.num_envs, device=env.device)
+    episode_seconds = (env._final_episode_length * env.step_dt).clamp(min=env.step_dt)
+    robot_goals = env._final_robot_goal_fractions[:, robot_index] * reach_constants.NUM_GOALS
+    return robot_goals / episode_seconds
+
 # =========================================================
 # EVENTS & RESETS
 # =========================================================
@@ -239,6 +275,7 @@ def reset_goal_state(
 
     _init_reach_state(env)
     env._final_goal_reached_fraction[env_ids] = env._goal_reached_mask[env_ids].float().mean(dim=1)
+    env._final_episode_length[env_ids] = env.episode_length_buf[env_ids].float()
     if hasattr(env, "_robot_goal_counts"):
         env._final_robot_goal_fractions[env_ids] = env._robot_goal_counts[env_ids] / reach_constants.NUM_GOALS
         env._robot_goal_counts[env_ids] = 0.0

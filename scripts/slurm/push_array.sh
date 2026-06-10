@@ -2,8 +2,8 @@
 #SBATCH --job-name=push
 #SBATCH --gpus=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=4
-#SBATCH --mem-per-cpu=8G
+#SBATCH --cpus-per-task=2
+#SBATCH --mem-per-cpu=4G
 #SBATCH --time=06:59:00
 #SBATCH --array=0-9
 #SBATCH --output=scripts/slurm/logs/push_%A_%a.out
@@ -38,5 +38,5 @@ uv run train push \
     --agent.seed "$SEED" \
     --agent.run-name "$RUN_NAME" \
     --agent.logger wandb \
-    --agent.wandb-project multi-robot-rl-euler-push \
+    --agent.wandb-project multi-robot-rl-euler-push-v2 \
     --agent.wandb-tags "('push-sweep','$RUN_NAME')"

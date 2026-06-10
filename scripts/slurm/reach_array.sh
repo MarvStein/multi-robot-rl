@@ -2,10 +2,10 @@
 #SBATCH --job-name=reach
 #SBATCH --gpus=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=4
-#SBATCH --mem-per-cpu=8G
-#SBATCH --time=07:59:00
-#SBATCH --array=0-19
+#SBATCH --cpus-per-task=2
+#SBATCH --mem-per-cpu=4G
+#SBATCH --time=10:00:00
+#SBATCH --array=0-29
 #SBATCH --output=scripts/slurm/logs/reach_%A_%a.out
 #SBATCH --error=scripts/slurm/logs/reach_%A_%a.err
 #SBATCH --mail-type=BEGIN,END,FAIL
@@ -23,6 +23,8 @@ VARIANTS=(
     "0 1 5 1ur10_5goals"
     "2 0 5 2mp_5goals"
     "1 0 5 1mp_5goals"
+    "4 0 5 4mp_5goals"
+    "0 4 5 4ur10_5goals"
 )
 SEEDS=(0 1 2 3 4)
 NUM_SEEDS=5
@@ -40,5 +42,5 @@ uv run train reach \
     --agent.seed "$SEED" \
     --agent.run-name "$RUN_NAME" \
     --agent.logger wandb \
-    --agent.wandb-project multi-robot-rl-euler-reach \
+    --agent.wandb-project multi-robot-rl-euler-reach-v2 \
     --agent.wandb-tags "('reach-sweep','$RUN_NAME')"

@@ -105,6 +105,10 @@ def make_push_env(play: bool = False, no_curriculum: bool = False) -> ManagerBas
             params={"robots": robots},
             weight=-1.0,
         ),
+        "step_penalty": RewardTermCfg(
+            func=mjlab_rewards.is_alive,
+            weight=-0.005,
+        ),
     }
 
     terminations = {
@@ -132,6 +136,9 @@ def make_push_env(play: bool = False, no_curriculum: bool = False) -> ManagerBas
     metrics = {
         "targets_reached_fraction": MetricsTermCfg(
             func=push_mdp.targets_reached_fraction,
+        ),
+        "targets_per_second": MetricsTermCfg(
+            func=push_mdp.targets_per_second,
         ),
     }
 

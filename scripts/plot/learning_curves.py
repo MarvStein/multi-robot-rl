@@ -24,26 +24,63 @@ SMOOTH_SPAN = 30  # EMA half-life in steps
 #   individual_seeds — True: thin per-seed lines + dashed mean; False: mean + std band
 FIGURES = [
     dict(
-        name="reach_mp",
+        name="reach_success_mp",
         projects=["reach"],
         filter=lambda df: ~df["variant"].str.contains("UR10"),
         metric="Episode_Metrics/goal_reached_fraction",
-        ylabel="Average fraction of goals reached",
+        ylabel="Success rate",
         individual_seeds=True,
     ),
     dict(
-        name="reach_ur10",
+        name="reach_success_ur10",
         projects=["reach"],
         filter=lambda df: df["variant"].str.contains("UR10"),
         metric="Episode_Metrics/goal_reached_fraction",
-        ylabel="Average fraction of goals reached",
+        ylabel="Success rate",
+        individual_seeds=True,
+    ),
+        dict(
+        name="reach_throughput_mp",
+        projects=["reach"],
+        filter=lambda df: ~df["variant"].str.contains("UR10"),
+        metric="Episode_Metrics/goals_per_second",
+        ylabel="Throughput (goals/s)",
         individual_seeds=True,
     ),
     dict(
-        name="push",
+        name="reach_throughput_ur10",
+        projects=["reach"],
+        filter=lambda df: df["variant"].str.contains("UR10"),
+        metric="Episode_Metrics/goals_per_second",
+        ylabel="Throughput (goals/s)",
+        individual_seeds=True,
+    ),
+    dict(
+        name="push_success",
         projects=["push"],
         metric="Episode_Metrics/targets_reached_fraction",
         ylabel="Success rate",
+        individual_seeds=True,
+    ),
+        dict(
+        name="push_throughput",
+        projects=["push"],
+        metric="Episode_Metrics/targets_per_second",
+        ylabel="Throughput (goals/s)",
+        individual_seeds=True,
+    ),
+    dict(
+        name="type_throughput",
+        projects=["type"],
+        metric="Episode_Metrics/throughput",
+        ylabel="Throughput (keys/episode)",
+        individual_seeds=False,
+    ),
+    dict(
+        name="type_wrong_keys",
+        projects=["type"],
+        metric="Episode_Metrics/wrong_keys_per_episode",
+        ylabel="Mistakes (keys/episode)",
         individual_seeds=False,
     ),
     dict(
@@ -53,34 +90,29 @@ FIGURES = [
         ylabel="Success rate",
         individual_seeds=True,
     ),
-    dict(
-        name="type_throughput",
-        projects=["type"],
-        metric="Episode_Metrics/throughput",
-        ylabel="Correct keys per episode",
-        individual_seeds=False,
-    ),
-    dict(
-        name="type_wrong_keys",
-        projects=["type"],
-        metric="Episode_Metrics/wrong_keys_per_episode",
-        ylabel="Wrong keys per episode",
-        individual_seeds=False,
-    ),
-    dict(
-        name="type_no_curriculum_throughput",
-        projects=["type-no-curriculum"],
-        metric="Episode_Metrics/throughput",
-        ylabel="Correct keys per episode",
-        individual_seeds=False,
-    ),
-    dict(
-        name="type_no_curriculum_wrong_keys",
-        projects=["type-no-curriculum"],
-        metric="Episode_Metrics/wrong_keys_per_episode",
-        ylabel="Wrong keys per episode",
-        individual_seeds=False,
-    ),
+    # dict(
+    #     name="type_no_curriculum_throughput",
+    #     projects=["type-no-curriculum"],
+    #     metric="Episode_Metrics/throughput",
+    #     ylabel="Throughput (keys/episode)",
+    #     individual_seeds=False,
+    # ),
+    # dict(
+    #     name="type_1mp_curriculum_vs_no_curriculum",
+    #     projects=["type", "type-no-curriculum"],
+    #     project_labels={"type": "with curriculum", "type-no-curriculum": "no curriculum"},
+    #     filter=lambda df: df["run_name"].str.contains("1mp"),
+    #     metric="Episode_Metrics/throughput",
+    #     ylabel="Throughput (keys/episode)",
+    #     individual_seeds=True,
+    # ),
+    # dict(
+    #     name="type_no_curriculum_wrong_keys",
+    #     projects=["type-no-curriculum"],
+    #     metric="Episode_Metrics/wrong_keys_per_episode",
+    #     ylabel="Mistakes (keys/episode)",
+    #     individual_seeds=False,
+    # ),
 ]
 
 
@@ -134,7 +166,11 @@ def plot_figure(cfg: dict) -> None:
         return
 
     df = pd.concat(frames, ignore_index=True) if len(frames) > 1 else frames[0]
-    df = add_variant_label(df)
+
+    if "project_labels" in cfg:
+        df["variant"] = df["task"].map(cfg["project_labels"])
+    else:
+        df = add_variant_label(df)
 
     if "filter" in cfg:
         df = df[cfg["filter"](df)]

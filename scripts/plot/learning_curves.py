@@ -83,13 +83,13 @@ FIGURES = [
         ylabel="Mistakes (keys/episode)",
         individual_seeds=False,
     ),
-    dict(
-        name="push_no_curriculum",
-        projects=["push-no-curriculum"],
-        metric="Episode_Metrics/targets_reached_fraction",
-        ylabel="Success rate",
-        individual_seeds=True,
-    ),
+    # dict(
+    #     name="push_no_curriculum",
+    #     projects=["push-no-curriculum"],
+    #     metric="Episode_Metrics/targets_reached_fraction",
+    #     ylabel="Success rate",
+    #     individual_seeds=True,
+    # ),
     # dict(
     #     name="type_no_curriculum_throughput",
     #     projects=["type-no-curriculum"],

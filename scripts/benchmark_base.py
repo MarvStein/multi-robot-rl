@@ -20,8 +20,8 @@ REPO_ROOT = Path(__file__).parent.parent.resolve()
 class AlgorithmSpec:
     """Algorithm identity pairing a short display label with a registered task id."""
 
-    name: str     # short label, e.g. "ppo", "fast-sac"
-    task_id: str  # registered task id, e.g. "reach", "reach-fast-sac"
+    name: str     # short label, e.g. "ppo"
+    task_id: str  # registered task id, e.g. "reach"
 
 
 @dataclass

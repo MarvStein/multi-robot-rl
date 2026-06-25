@@ -14,7 +14,6 @@ TIMEOUT_S = 60 * 240  # convervative timeout per run
 
 ALGORITHMS = [
     AlgorithmSpec("ppo",      "reach"),
-    # AlgorithmSpec("fast-sac", "reach-fast-sac"),
 ]
 
 # Note: mjlab is not yet deterministic https://github.com/mujocolab/mjlab/issues/1023
@@ -43,10 +42,10 @@ class ReachBenchmark(BenchmarkRunner):
 
         Encodes the robot composition and goal count into a compact string used
         as a directory/experiment name.  Example outputs: ``"ppo_2mp_5goals"``,
-        ``"fast-sac_1ur10_5goals"``, ``"ppo_1mp_1ur10_5goals"``.
+        ``"ppo_1mp_1ur10_5goals"``.
 
         Args:
-            algo_name: Short algorithm identifier (e.g. ``"ppo"`` or ``"fast-sac"``).
+            algo_name: Short algorithm identifier (e.g. ``"ppo"``).
             variant: Mapping of constant names to their values for this run;
                 expected keys are ``NUM_MASSPOINTS``, ``NUM_UR10S``, and
                 ``NUM_GOALS``.

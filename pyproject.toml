@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "mjlab>=1.1.0",
+    "mjlab==1.4.0",
     "pandas>=3.0.3",
     "seaborn>=0.13.2",
 ]
@@ -21,8 +21,6 @@ multi_robot_rl = "multi_robot_rl"
 requires = ["uv_build>=0.10.11,<0.11.0"]
 build-backend = "uv_build"
 
-[tool.uv.sources]
-mjlab = { git = "https://github.com/MarvStein/mjlab.git", branch = "feat/fast-sac" }
 
 [dependency-groups]
 dev = [

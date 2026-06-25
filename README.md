@@ -2,7 +2,7 @@
 
 [![Docs Deploy](https://github.com/MarvStein/multi-robot-rl/actions/workflows/docs.yml/badge.svg)](https://github.com/MarvStein/multi-robot-rl/actions/workflows/docs.yml)
 
-A research codebase for multi-robot reinforcement learning in MuJoCo, built on [mjlab](https://mujocolab.github.io/mjlab/main/index.html). It defines three tasks where a variable number of robots (masspoints or UR10e arms) must jointly solve a shared objective, trained with PPO or FastSAC.
+A research codebase for multi-robot reinforcement learning in MuJoCo, built on [mjlab](https://mujocolab.github.io/mjlab/main/index.html). It defines three tasks where a variable number of robots (masspoints or UR10e arms) must jointly solve a shared objective, trained with PPO.
 
 ## Tasks
 

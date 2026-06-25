@@ -1,7 +1,5 @@
-"""Factory functions that return mjlab RL runner configurations for PPO and FastSAC."""
+"""Factory functions that return mjlab RL runner configurations for PPO."""
 from mjlab.rl import (
-  RslRlFastSacAlgorithmCfg,
-  RslRlFastSacRunnerCfg,
   RslRlModelCfg,
   RslRlOnPolicyRunnerCfg,
   RslRlPpoAlgorithmCfg,
@@ -64,18 +62,3 @@ def ppo_runner_cfg_push_task() -> RslRlOnPolicyRunnerCfg:
     cfg.max_iterations = 1 + 35_000 # total env steps = max_iterations * num_steps_per_env * num_envs = 25_000 * 24 * 2048
     return cfg
 
-def fast_sac_runner_cfg_reach_task() -> RslRlFastSacRunnerCfg:
-    """Return the FastSAC runner configuration for the reach task."""
-    return RslRlFastSacRunnerCfg(
-        experiment_name="reach_task",
-        max_iterations=1+600_000, # 24 times larger than PPO to get equal total env steps
-        save_interval=2400,
-        algorithm=RslRlFastSacAlgorithmCfg(
-            gamma=0.99,
-            batch_size=4096,
-            buffer_size=2048,
-            num_updates=4,
-            compile=False,
-            amp=False,
-        ),
-    )

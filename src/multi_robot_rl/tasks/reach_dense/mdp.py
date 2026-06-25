@@ -106,6 +106,10 @@ def pbrs_dense_reward(
 
     current_potential = _potential(distances, effective_mask)             # (num_envs,)
     shaping = gamma * current_potential - env._prev_potential
+    # Zero shaping on the first step of each episode: _prev_potential was reset to 0
+    # (not φ(s₀)), so the signal would be spuriously large. Step 2 onward is correct
+    # because _prev_potential is properly set to φ(s₁) after this call.
+    shaping = shaping.masked_fill(env.episode_length_buf == 1, 0.0)
     env._prev_potential = current_potential.clone()
 
     return shaping  # (num_envs,)

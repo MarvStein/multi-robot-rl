@@ -11,6 +11,8 @@ import pandas as pd
 
 from utils import PROJECTS, STEP_COL, add_variant_label, load_history, save_figure
 
+STEP_FALLBACK_SCALE = 2048 * 24  # steps × (n_envs × horizon) when Train/env_steps is absent
+
 ALPHA_SEED = 0.25
 ALPHA_BAND = 0.2
 SMOOTH_SPAN = 30  # EMA half-life in steps
@@ -83,41 +85,36 @@ FIGURES = [
         ylabel="Mistakes (keys/episode)",
         individual_seeds=False,
     ),
-    # dict(
-    #     name="push_no_curriculum",
-    #     projects=["push-no-curriculum"],
-    #     metric="Episode_Metrics/targets_reached_fraction",
-    #     ylabel="Success rate",
-    #     individual_seeds=True,
-    # ),
-    # dict(
-    #     name="type_no_curriculum_throughput",
-    #     projects=["type-no-curriculum"],
-    #     metric="Episode_Metrics/throughput",
-    #     ylabel="Throughput (keys/episode)",
-    #     individual_seeds=False,
-    # ),
-    # dict(
-    #     name="type_1mp_curriculum_vs_no_curriculum",
-    #     projects=["type", "type-no-curriculum"],
-    #     project_labels={"type": "with curriculum", "type-no-curriculum": "no curriculum"},
-    #     filter=lambda df: df["run_name"].str.contains("1mp"),
-    #     metric="Episode_Metrics/throughput",
-    #     ylabel="Throughput (keys/episode)",
-    #     individual_seeds=True,
-    # ),
-    # dict(
-    #     name="type_no_curriculum_wrong_keys",
-    #     projects=["type-no-curriculum"],
-    #     metric="Episode_Metrics/wrong_keys_per_episode",
-    #     ylabel="Mistakes (keys/episode)",
-    #     individual_seeds=False,
-    # ),
+    # Reach ablation: sparse/dense × curriculum/no-curriculum, 2 MPs only.
+    # Projects that did not log Train/env_steps get a reconstructed x-axis via
+    # step * STEP_FALLBACK_SCALE so all curves share the same scale.
+    dict(
+        name="reach_ablation",
+        projects=["reach", "reach-no-curriculum", "reach-dense-no-curriculum", "reach-dense-curriculum"],
+        per_project_label={
+            "reach":                     "Sparse + Curriculum",
+            "reach-no-curriculum":       "Sparse, No Curriculum",
+            "reach-dense-no-curriculum": "Dense, No Curriculum",
+            "reach-dense-curriculum":    "Dense + Curriculum",
+        },
+        filter=lambda df: df["run_name"].str.contains("2mp"),
+        metric="Episode_Metrics/goal_reached_fraction",
+        ylabel="Success rate",
+        individual_seeds=True,
+    ),
 ]
 
 
 def _ema(s: pd.Series) -> pd.Series:
     return s.ewm(span=SMOOTH_SPAN, adjust=False).mean()
+
+
+def _ensure_step_col(df: pd.DataFrame) -> pd.DataFrame:
+    """Reconstruct Train/env_steps from the W&B step index when the column is absent or all-NaN."""
+    if STEP_COL not in df.columns or df[STEP_COL].isna().all():
+        df = df.copy()
+        df[STEP_COL] = df["_step"] * STEP_FALLBACK_SCALE
+    return df
 
 
 def plot_metric(ax: plt.Axes, df: pd.DataFrame, metric: str, ylabel: str,
@@ -159,7 +156,12 @@ def plot_figure(cfg: dict) -> None:
     frames = []
     for key in cfg["projects"]:
         try:
-            frames.append(load_history(PROJECTS[key]))
+            frame = load_history(PROJECTS[key])
+            if "per_project_label" in cfg:
+                frame = _ensure_step_col(frame)
+                frame = frame.copy()
+                frame["variant"] = cfg["per_project_label"].get(key, key)
+            frames.append(frame)
         except FileNotFoundError as e:
             print(e)
     if not frames:
@@ -167,10 +169,11 @@ def plot_figure(cfg: dict) -> None:
 
     df = pd.concat(frames, ignore_index=True) if len(frames) > 1 else frames[0]
 
-    if "project_labels" in cfg:
-        df["variant"] = df["task"].map(cfg["project_labels"])
-    else:
-        df = add_variant_label(df)
+    if "per_project_label" not in cfg:
+        if "project_labels" in cfg:
+            df["variant"] = df["task"].map(cfg["project_labels"])
+        else:
+            df = add_variant_label(df)
 
     if "filter" in cfg:
         df = df[cfg["filter"](df)]

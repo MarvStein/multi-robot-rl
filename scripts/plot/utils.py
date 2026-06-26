@@ -14,13 +14,12 @@ FIGURES_DIR = Path(__file__).parent.parent.parent / "figures"
 STEP_COL = "Train/env_steps"
 
 PROJECTS = {
-    "reach-old":                "multi-robot-rl-euler-reach",
-    "push-old":                 "multi-robot-rl-push-2026-06-06_12-22-30",
-    "reach":                    "multi-robot-rl-euler-reach-v2",
-    "push":                     "multi-robot-rl-euler-push-v2",
-    "type":                     "multi-robot-rl-type-2026-06-05_13-48-30",
-    "type-no-curriculum":       "multi-robot-rl-type-no-curriculum-2026-06-08_12-34-39",
-    "push-no-curriculum":       "multi-robot-rl-push-no-curriculum-2026-06-08_15-35-00",
+    "reach":                       "multi-robot-rl-euler-reach-v2",
+    "push":                        "multi-robot-rl-euler-push-v2",
+    "type":                        "multi-robot-rl-type-2026-06-05_13-48-30",
+    "reach-no-curriculum":         "multi-robot-rl-euler-reach-no-curriculum",
+    "reach-dense-no-curriculum":   "multi-robot-rl-euler-reach-dense-no-curriculum",
+    "reach-dense-curriculum":      "multi-robot-rl-euler-reach-dense-curriculum"
 }
 
 
